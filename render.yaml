@@ -1,0 +1,35 @@
+services:
+  - type: web
+    name: gilead-backend
+    env: python
+    buildCommand: "cd backend && pip install -r requirements.txt"
+    startCommand: "cd backend && uvicorn src.main:app --host 0.0.0.0 --port $PORT"
+    envVars:
+      - key: AZURE_OPENAI_KEY
+        sync: false
+      - key: AZURE_OPENAI_ENDPOINT
+        sync: false
+      - key: AZURE_OPENAI_CHAT_DEPLOYMENT
+        sync: false
+      - key: AZURE_OPENAI_API_VERSION
+        sync: false
+      - key: AZURE_OPENAI_EMBEDDING_DEPLOYMENT
+        sync: false
+      - key: PYTHONPATH
+        value: "."
+      - key: PYTHON_VERSION
+        value: "3.10.0"
+
+  - type: web
+    name: gilead-frontend
+    env: node
+    buildCommand: "cd Gilead-POC-FE-main/Gilead-POC-FE-main && npm install && npm run build"
+    startCommand: "cd Gilead-POC-FE-main/Gilead-POC-FE-main && npm start"
+    envVars:
+      - key: NEXT_PUBLIC_API_URL
+        fromService:
+          type: web
+          name: gilead-backend
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: NODE_VERSION
+        value: "18.17.0"
