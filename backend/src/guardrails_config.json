@@ -1,0 +1,6 @@
+{
+  "max_rows": 100,
+  "require_limit": true,
+  "allow_select_star": false,
+  "extra_disallowed": []
+}

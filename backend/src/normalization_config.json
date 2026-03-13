@@ -1,0 +1,20 @@
+{
+  "default_rules": {
+    "trim_whitespace": true
+  },
+  "columns": {
+    "Territory ID": {
+      "case": "upper",
+      "collapse_non_alnum": true,
+      "trim_whitespace": true
+    },
+    "Region ID": {
+      "case": "upper",
+      "trim_whitespace": true
+    },
+    "ZIP": {
+      "trim_whitespace": true,
+      "strip_chars": [" ", "-"]
+    }
+  }
+}

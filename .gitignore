@@ -1,0 +1,30 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+.venv
+*.db
+
+# Node
+node_modules/
+dist/
+build/
+.next/
+*.log
+
+# Mac/OS
+.DS_Store
+Thumbs.db
+
+# Project specifics
+backend/state/
+backend/venv/
+backend/.env
+Gilead-POC-FE-main/Gilead-POC-FE-main/node_modules/
+Gilead-POC-FE-main/Gilead-POC-FE-main/.next/
+Gilead-POC-FE-main/Gilead-POC-FE-main/.env.local
