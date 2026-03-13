@@ -9,10 +9,10 @@ interface QueryParams {
   sessionId: string;
 }
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_SERVER_URL;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 if (!API_BASE_URL) {
-  throw new Error('NEXT_PUBLIC_SERVER_URL is not defined');
+  console.warn('NEXT_PUBLIC_API_URL is not defined, falling back to localhost');
 }
 
 export const queryChat = async ({ question, sessionId }: QueryParams): Promise<string> => {
