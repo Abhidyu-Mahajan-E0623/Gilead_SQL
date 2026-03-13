@@ -322,7 +322,8 @@ class ChatResponder:
             if line.startswith("•"):
                 out.append(line)
             elif line.startswith("-") or re.match(r"^\d+\.", line):
-                out.append(f"• {re.sub(r'^(-|\\d+\\.)\\s*', '', line)}")
+                cleaned_line = re.sub(r"^(-|\d+\.)\s*", "", line)
+                out.append(f"• {cleaned_line}")
             else:
                 out.append(line)
         return "\n\n".join(out)
@@ -392,7 +393,16 @@ class ChatResponder:
             items = self._split_sentences(self._generalize_text(source))[:3]
         else:
             items = self._select_partial_sentences(query, source)
-        return "\n\n".join(f"• {re.sub(r'^[-*]\\s*', '', re.sub(r'^\\d+\\.\\s*', '', ' '.join(i.replace('•', ' ').split())))}" for i in items if i.strip())
+        
+        fallback_lines = []
+        for i in items:
+            if not i.strip():
+                continue
+            clean_i = ' '.join(i.replace('•', ' ').split())
+            clean_i = re.sub(r"^[-*]\s*", "", clean_i)
+            clean_i = re.sub(r"^\d+\.\s*", "", clean_i)
+            fallback_lines.append(f"• {clean_i}")
+        return "\n\n".join(fallback_lines)
 
     def _classify_question_mode(self, query: str, context: dict[str, Any]) -> str:
         nq = normalize_text(query)
