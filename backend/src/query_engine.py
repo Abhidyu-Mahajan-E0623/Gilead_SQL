@@ -108,8 +108,8 @@ def process_query(question: str, session_id: str, steward_steps: list[str] | Non
     mem["history"].append({"role": "user", "content": question})
 
     enriched = question
-    if steward_steps:
-        enriched += "\n\n[PLAYBOOK STEWARD STEPS FOR CONTEXT]:\n" + "\n".join(f"- {s}" for s in steward_steps)
+    # Playbook steward step injection is intentionally disabled.
+    # SQL generation should rely on the static guide + schema only.
     try:
         resolution = resolve_references(session_id, question)
         if resolution.get("ambiguous") and resolution.get("clarification_question"):

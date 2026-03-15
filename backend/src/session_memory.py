@@ -13,10 +13,12 @@ DB_PATH = os.path.join(str(SESSION_STORE_DIR), "session_store.sqlite")
 MAX_HISTORY = 20
 
 REFERENCE_PATTERNS = [
-    r'\b(their|them|those|these|its|that|the same)\b',
+    r'\b(their|them|those|these|the same)\b',
     r'\b(the (?:above|previous|last|mentioned|selected))\b',
     r'\b((?:same|corresponding|related|associated)\s+\w+)\b',
     r'\b(previous output|previous result|last result|above list|same list)\b',
+    r'\b(that (?:record|provider|hcp|account|territory|one|same one))\b',
+    r'\b(its (?:volume|credit|territory|status|details|alignment|mapping))\b',
 ]
 REFERENCE_RE = re.compile('|'.join(REFERENCE_PATTERNS), re.IGNORECASE)
 

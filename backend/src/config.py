@@ -17,6 +17,7 @@ STATE_DIR = BASE_DIR / "state"                              # session store, exc
 
 PLAYBOOK_PATH = INPUT_DIR / "GILEAD_Field_Inquiry_Playbook.json"
 DATA_FILE_DIR = INPUT_DIR                                    # Sample_Data 2.xlsx lives here
+LLM_GUIDE_PATH = INPUT_DIR / "SAMPLE_DATA_2_LLM_GUIDE.md"
 DB_PATH = DATA_DIR / "chat_history.db"
 EMBED_CACHE_PATH = DATA_DIR / "embedding_cache.json"
 SESSION_STORE_DIR = STATE_DIR
