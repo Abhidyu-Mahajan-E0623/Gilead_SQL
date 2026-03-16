@@ -78,6 +78,89 @@ export async function getReasoningPreview(chatId: string, content: string): Prom
   });
 }
 
+/**
+ * Stream LLM-generated reasoning steps from the SSE endpoint.
+ *
+ * Calls `onStep` for each reasoning step as it arrives.
+ * Calls `onSummary` when the summary event arrives.
+ * Returns `true` if at least one step was received, `false` otherwise
+ * (so the caller can decide whether to keep its local fallback).
+ */
+export async function streamReasoningSteps(
+  chatId: string,
+  content: string,
+  callbacks: {
+    onStep: (step: string, index: number, total: number) => void;
+    onSummary?: (summary: string, total: number) => void;
+  },
+  signal?: AbortSignal,
+): Promise<boolean> {
+  const url = `${API_BASE_URL}/api/chats/${chatId}/reasoning-stream?content=${encodeURIComponent(content)}`;
+  let receivedSteps = false;
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal,
+    });
+
+    if (!response.ok || !response.body) {
+      return false;
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      // Keep the last potentially incomplete line in the buffer
+      buffer = lines.pop() || '';
+
+      let currentEventType = '';
+      for (const line of lines) {
+        if (line.startsWith('event: ')) {
+          currentEventType = line.slice(7).trim();
+          if (currentEventType === 'done') break;
+          continue;
+        }
+
+        if (!line.startsWith('data: ')) continue;
+
+        const jsonStr = line.slice(6).trim();
+        if (!jsonStr || jsonStr === '{}') continue;
+
+        try {
+          const parsed = JSON.parse(jsonStr);
+
+          if (currentEventType === 'summary' && parsed.summary) {
+            callbacks.onSummary?.(parsed.summary, parsed.total || 0);
+            currentEventType = '';
+            continue;
+          }
+
+          if (parsed.step) {
+            callbacks.onStep(parsed.step, parsed.index ?? 0, parsed.total ?? 1);
+            receivedSteps = true;
+          }
+        } catch {
+          // Skip malformed JSON lines
+        }
+        currentEventType = '';
+      }
+    }
+  } catch (error) {
+    if (signal?.aborted) return receivedSteps;
+    console.error('Reasoning stream error:', error);
+  }
+
+  return receivedSteps;
+}
+
 export async function deleteChat(chatId: string): Promise<{ deleted: boolean }> {
   return apiRequest<{ deleted: boolean }>(`/api/chats/${chatId}`, {
     method: 'DELETE',

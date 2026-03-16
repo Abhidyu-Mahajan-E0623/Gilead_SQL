@@ -41,3 +41,9 @@ export interface ReasoningPreview {
   summary: string;
   details: string[];
 }
+
+export interface ReasoningStepEvent {
+  step: string;
+  index: number;
+  total: number;
+}

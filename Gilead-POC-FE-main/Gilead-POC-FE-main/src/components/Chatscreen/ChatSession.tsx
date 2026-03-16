@@ -10,10 +10,10 @@ import {
   ApiError,
   consumePendingPrompt,
   getChat,
-  getReasoningPreview,
   listChatMessages,
   notifyChatHistoryUpdated,
   sendChatMessage,
+  streamReasoningSteps,
 } from '@/utils/api/chat';
 import type { MessageRecord, ReasoningPreview } from '@/utils/types';
 
@@ -43,18 +43,26 @@ function buildFallbackReasoningPreview(
   const recentUserMessage = [...existingMessages]
     .reverse()
     .find((message) => message.role === 'user' && message.content.trim());
+  const recentAssistantMessage = [...existingMessages]
+    .reverse()
+    .find((message) => message.role === 'assistant' && message.content.trim());
   const focus = compact.length > 88 ? `${compact.slice(0, 85).trimEnd()}...` : compact;
   const npiMatch = compact.match(/\bNPI\s*[:#-]?\s*(\d{10})\b|\b(\d{10})\b/i);
   const territoryMatch = compact.match(/\b[A-Z]{2,4}-\d{1,3}\b/i);
   const mentionsRetail = /\bretail\b/i.test(compact);
   const mentionsStatus = /\bstatus|active|inactive\b/i.test(compact);
   const mentionsDcr = /\bDCR\b|duplicate|merge|merged|credit\b/i.test(compact);
+  const tokenCount = compact ? compact.split(/\s+/).length : 0;
+  const followUpHint = recentAssistantMessage
+    ? /please provide the|before proceeding/i.test(recentAssistantMessage.content)
+    : false;
+  const isLikelyFollowUp = Boolean(recentUserMessage) && (followUpHint || tokenCount <= 6);
 
   const details = [`I am understanding the user query and the key request around ${focus}.`];
 
-  if (recentUserMessage) {
+  if (isLikelyFollowUp) {
     details.push(
-      `I am applying the recent chat context so this follow-up stays aligned with the earlier thread: "${recentUserMessage.content.trim().slice(0, 90)}${recentUserMessage.content.trim().length > 90 ? '...' : ''}".`,
+      'I am applying recent context from this chat so the follow-up stays aligned with the earlier request.',
     );
   }
 
@@ -103,6 +111,8 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
   const messagesRef = useRef<ChatMessage[]>([]);
   const isSendingRef = useRef(false);
   const reasoningRequestRef = useRef<string | null>(null);
+  const reasoningAbortRef = useRef<AbortController | null>(null);
+  const sendMessageRef = useRef<(text: string) => Promise<void>>(async () => {});
   const router = useRouter();
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -136,18 +146,41 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
     setMessages((previous) => [...previous, optimisticMessage]);
     isSendingRef.current = true;
     setIsLoading(true);
-    setReasoningPreview(buildFallbackReasoningPreview(text, messagesRef.current));
+
+    // Show local fallback reasoning immediately for instant UX
+    const fallbackPreview = buildFallbackReasoningPreview(text, messagesRef.current);
+    setReasoningPreview(fallbackPreview);
     reasoningRequestRef.current = optimisticMessage.id;
 
-    void getReasoningPreview(chatId, text)
-      .then((preview) => {
-        if (reasoningRequestRef.current === optimisticMessage.id) {
-          setReasoningPreview(preview);
-        }
-      })
-      .catch((error) => {
-        console.error('Failed to load reasoning preview:', error);
-      });
+    // Start SSE stream for LLM-generated reasoning (replaces fallback as steps arrive)
+    const abortController = new AbortController();
+    reasoningAbortRef.current = abortController;
+
+    void streamReasoningSteps(
+      chatId,
+      text,
+      {
+        onSummary: (summary) => {
+          if (reasoningRequestRef.current === optimisticMessage.id) {
+            setReasoningPreview((prev) => prev ? { ...prev, summary } : { summary, details: [] });
+          }
+        },
+        onStep: (step, index) => {
+          if (reasoningRequestRef.current === optimisticMessage.id) {
+            setReasoningPreview((prev) => {
+              if (!prev) return { summary: fallbackPreview.summary, details: [step] };
+              // On first SSE step, replace fallback details entirely
+              if (index === 0) return { ...prev, details: [step] };
+              // Append subsequent steps
+              return { ...prev, details: [...prev.details, step] };
+            });
+          }
+        },
+      },
+      abortController.signal,
+    ).catch((error) => {
+      console.error('SSE reasoning stream failed, keeping fallback:', error);
+    });
 
     try {
       const response = await sendChatMessage(chatId, text);
@@ -180,10 +213,18 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
     } finally {
       isSendingRef.current = false;
       reasoningRequestRef.current = null;
+      // Abort the SSE reasoning stream if it's still running
+      reasoningAbortRef.current?.abort();
+      reasoningAbortRef.current = null;
       setReasoningPreview(null);
       setIsLoading(false);
     }
   }, [chatId, chatMissing]);
+
+  // Keep the ref in sync so hydrateChat can call the latest sendMessage
+  useEffect(() => {
+    sendMessageRef.current = sendMessage;
+  }, [sendMessage]);
 
   useEffect(() => {
     let isActive = true;
@@ -205,7 +246,7 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
 
         const pendingPrompt = consumePendingPrompt(chatId);
         if (pendingPrompt && storedMessages.length === 0) {
-          await sendMessage(pendingPrompt);
+          void sendMessageRef.current(pendingPrompt);
         }
       } catch (error) {
         if (!isActive) {
@@ -230,7 +271,8 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
     return () => {
       isActive = false;
     };
-  }, [chatId, sendMessage]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chatId]);
 
   const resetTextareaHeight = () => {
     const textarea = document.querySelector('textarea');
@@ -411,7 +453,7 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
                 )}
                 {isLoading && (
                   <MessageLeft
-                    key={reasoningPreview ? `${reasoningPreview.summary}::${reasoningPreview.details.join('||')}` : 'reasoning-preview'}
+                    key="reasoning-loading"
                     content=""
                     isLoading={true}
                     reasoningPreview={reasoningPreview}

@@ -54,6 +54,11 @@ def _load_llm_guide() -> str:
         return ""
 
 
+def _escape_prompt_braces(text: str) -> str:
+    """Escape braces so langchain .format() doesn't treat them as placeholders."""
+    return text.replace("{", "{{").replace("}", "}}")
+
+
 class DuckDBSQLDatabase(SQLDatabase):
     """Custom SQLDatabase wrapper for DuckDB with guardrails."""
 
@@ -181,12 +186,12 @@ class LangChainSQLAgent:
             ctx += "\n"
         warnings = _load_warning_notes()
         if warnings:
-            ctx += "## Critical Data Warnings (MANDATORY)\n" + warnings + "\n\n"
+            ctx += "## Critical Data Warnings (MANDATORY)\n" + _escape_prompt_braces(warnings) + "\n\n"
         guide = _load_llm_guide()
         if guide:
             ctx += "## Sample Data Guide (MANDATORY)\n"
             ctx += "Use the following business guidance when choosing joins, filters, and root-cause logic.\n\n"
-            ctx += guide + "\n\n"
+            ctx += _escape_prompt_braces(guide) + "\n\n"
         ctx += """## Query Guidelines
 
 1. Use EXACT column names (case-sensitive)
@@ -301,23 +306,29 @@ Generate accurate DuckDB SQL queries following these guidelines.
 
     def _get_account_reference_rows(self) -> list[dict[str, Any]]:
         if self._account_reference_rows is None:
-            df = self.db.con.execute(
-                "SELECT DISTINCT HCO_ID, HCO_NAME, ADDRESS, CITY, STATE, ACCOUNT_TYPE, RETAIL_FLAG "
-                "FROM onekey_hcp"
-            ).fetchdf()
-            self._account_reference_rows = df.to_dict("records")
+            try:
+                df = self.db.con.execute(
+                    "SELECT DISTINCT HCO_ID, HCO_Name, HCO_Address, HCO_City, HCO_State, Retail "
+                    "FROM iqvia_onekey"
+                ).fetchdf()
+                self._account_reference_rows = df.to_dict("records")
+            except Exception:
+                self._account_reference_rows = []
         return self._account_reference_rows
 
     def _get_product_values(self) -> list[str]:
         if self._product_values is None:
-            rows = self.db.con.execute(
-                "SELECT DISTINCT PRODUCT FROM ("
-                "SELECT PRODUCT FROM ddd_retial "
-                "UNION SELECT PRODUCT FROM exponent_nonretail "
-                "UNION SELECT PRODUCT FROM ship_to_867"
-                ") ORDER BY PRODUCT"
-            ).fetchall()
-            self._product_values = [str(row[0]) for row in rows if row and row[0]]
+            try:
+                rows = self.db.con.execute(
+                    "SELECT DISTINCT Product FROM ("
+                    "SELECT Product FROM iqvia_ddd "
+                    "UNION SELECT Product FROM exponent "
+                    "UNION SELECT Product FROM \"867_shipment\""
+                    ") ORDER BY Product"
+                ).fetchall()
+                self._product_values = [str(row[0]) for row in rows if row and row[0]]
+            except Exception:
+                self._product_values = []
         return self._product_values
 
     def _resolve_product_from_question(self, question: str) -> str | None:
@@ -334,10 +345,10 @@ Generate accurate DuckDB SQL queries following these guidelines.
         best_score = 0.0
 
         for row in self._get_account_reference_rows():
-            hco_name = str(row.get("HCO_NAME", "") or "")
-            address = str(row.get("ADDRESS", "") or "")
-            city = str(row.get("CITY", "") or "")
-            state = str(row.get("STATE", "") or "")
+            hco_name = str(row.get("HCO_Name", "") or "")
+            address = str(row.get("HCO_Address", "") or "")
+            city = str(row.get("HCO_City", "") or "")
+            state = str(row.get("HCO_State", "") or "")
 
             score = 0.0
             if hco_name and hco_name.lower() in lowered:
@@ -377,10 +388,14 @@ Generate accurate DuckDB SQL queries following these guidelines.
             return
         mappings = {
             "HCO_ID": "HCO_ID",
+            "HCO_Name": "ACCOUNT_NAME",
             "HCO_NAME": "ACCOUNT_NAME",
             "NPI": "NPI",
+            "Territory": "TERRITORY_ID",
             "TERRITORY_ID": "TERRITORY_ID",
+            "Product": "PRODUCT",
             "PRODUCT": "PRODUCT",
+            "HCO_Address": "ACCOUNT_ADDRESS",
             "ADDRESS": "ACCOUNT_ADDRESS",
         }
         for column, key in mappings.items():
@@ -393,7 +408,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
     def _build_execution_context(self, question: str) -> dict[str, Any]:
         context: dict[str, Any] = {}
         npi = self._extract_first(r"\b(\d{10})\b", question)
-        hco_id = self._extract_first(r"\b(HCO-[A-Z0-9-]+)\b", question)
+        hco_id = self._extract_first(r"\b(HCO[_-][A-Z0-9_-]+)\b", question)
         territory_id = self._extract_territory_id(question)
         product = self._resolve_product_from_question(question)
         account = self._resolve_account_from_question(question)
@@ -402,7 +417,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
         if npi:
             context["NPI"] = npi
         if hco_id:
-            context["HCO_ID"] = hco_id.upper()
+            context["HCO_ID"] = hco_id
         if territory_id:
             context["TERRITORY_ID"] = territory_id.upper()
         if product:
@@ -411,8 +426,8 @@ Generate accurate DuckDB SQL queries following these guidelines.
             context["ADDRESS_FRAGMENT"] = self._sql_escape(address_fragment)
         if account:
             context.setdefault("HCO_ID", str(account.get("HCO_ID", "")))
-            context["ACCOUNT_NAME"] = self._sql_escape(str(account.get("HCO_NAME", "")))
-            context["ACCOUNT_ADDRESS"] = self._sql_escape(str(account.get("ADDRESS", "")))
+            context["ACCOUNT_NAME"] = self._sql_escape(str(account.get("HCO_Name", "")))
+            context["ACCOUNT_ADDRESS"] = self._sql_escape(str(account.get("HCO_Address", "")))
 
         return context
 
@@ -455,47 +470,47 @@ Generate accurate DuckDB SQL queries following these guidelines.
 
         if npi and any(term in lowered for term in diagnostic_terms):
             return {
-                "analysis": "Use multiple focused queries to inspect provider identity, alignment, governance events, and retail volume before answering.",
+                "analysis": "Use multiple focused queries to inspect provider identity, alignment, governance events, and prescribing volume before answering.",
                 "queries": [
                     {
                         "name": "provider_records",
                         "purpose": "Inspect all OneKey records tied to the NPI, including active and retired duplicates.",
                         "sql": (
-                            "SELECT RECORD_ID, NPI, HCP_NAME, SPECIALTY, SPECIALTY_CODE, RECORD_STATUS, "
-                            "MASTER_HCP_ID, CREDIT_FLAG, HCO_ID, HCO_NAME, ADDRESS, CITY, STATE, ZIP, "
-                            "ACCOUNT_TYPE, RETAIL_FLAG, REPORTING_STATUS, RECORD_CREATION_DATE, RECORD_EXPIRATION_DATE "
-                            f"FROM onekey_hcp WHERE NPI = {npi} "
-                            "ORDER BY CASE WHEN RECORD_STATUS = 'Active' THEN 0 ELSE 1 END, RECORD_CREATION_DATE DESC LIMIT 100"
+                            "SELECT HCP_ID, HCP_Name, NPI, Master_ID, Specialty, Status, "
+                            "HCP_Address, HCP_City, HCP_State, HCP_ZIP, "
+                            "HCO_ID, HCO_Name, Affiliation_Type, Retail, "
+                            "Digital_DNC_Flag, Inperson_DNC_Flag "
+                            f"FROM iqvia_onekey WHERE NPI = {npi} "
+                            "ORDER BY CASE WHEN Status = 'Active' THEN 0 ELSE 1 END LIMIT 100"
                         ),
                     },
                     {
-                        "name": "alignment_history",
-                        "purpose": "Check territory assignments for the NPI and their effective dates.",
+                        "name": "territory_from_zip",
+                        "purpose": "Check territory assignments for the provider's ZIP codes.",
                         "sql": (
-                            "SELECT HCP_ID, NPI, TERRITORY_ID, ZIP, EFFECTIVE_DATE "
-                            f"FROM alignement_file WHERE NPI = {npi} "
-                            "ORDER BY EFFECTIVE_DATE DESC, HCP_ID LIMIT 100"
+                            "SELECT a.ZIP, a.Territory, a.Region, a.Area "
+                            "FROM alignment a "
+                            f"WHERE a.ZIP IN (SELECT HCP_ZIP FROM iqvia_onekey WHERE NPI = {npi}) "
+                            "LIMIT 100"
                         ),
                     },
                     {
                         "name": "dcr_events",
-                        "purpose": "Look for merge, territory realignment, or exception events tied to the same provider records.",
+                        "purpose": "Look for merge, DNC update, or other governance events tied to the provider.",
                         "sql": (
-                            "SELECT d.DCR_ID, d.REQUEST_TYPE, d.ENTITY, d.OLD_HCP_ID, d.MASTER_HCP_ID, d.DESCRIPTION, d.DATE "
-                            "FROM dcr_logs d "
-                            "LEFT JOIN onekey_hcp old_hcp ON d.OLD_HCP_ID = old_hcp.RECORD_ID "
-                            "LEFT JOIN onekey_hcp master_hcp ON d.MASTER_HCP_ID = master_hcp.RECORD_ID "
-                            f"WHERE old_hcp.NPI = {npi} OR master_hcp.NPI = {npi} "
-                            "ORDER BY d.DATE DESC LIMIT 100"
+                            "SELECT d.Change_Date, d.Entity, d.Entity_ID, d.Change_Type, d.Details "
+                            "FROM dcr d "
+                            f"WHERE d.Entity_ID IN (SELECT HCP_ID FROM iqvia_onekey WHERE NPI = {npi}) "
+                            "ORDER BY d.Change_Date DESC LIMIT 100"
                         ),
                     },
                     {
-                        "name": "retail_volume",
+                        "name": "prescribing_volume",
                         "purpose": "Confirm whether prescribing volume continued and how it changed over time.",
                         "sql": (
-                            "SELECT NPI, PRODUCT, MONTH, NBRX, TRX "
-                            f"FROM ddd_retial WHERE NPI = {npi} "
-                            "ORDER BY MONTH DESC LIMIT 100"
+                            "SELECT NPI, HCP_ID, Product, Month, Units, Territory "
+                            f"FROM iqvia_ddd WHERE NPI = {npi} "
+                            "ORDER BY Month LIMIT 100"
                         ),
                     },
                 ],
@@ -504,66 +519,56 @@ Generate accurate DuckDB SQL queries following these guidelines.
         resolved_hco_id = hco_id or (str(resolved_account.get("HCO_ID")) if resolved_account else None)
         if resolved_hco_id and any(term in lowered for term in retail_terms):
             safe_hco_id = self._sql_escape(resolved_hco_id)
-            product_filter_e = f" AND e.PRODUCT = '{self._sql_escape(product)}'" if product else ""
-            product_filter_d = f" AND d.PRODUCT = '{self._sql_escape(product)}'" if product else ""
-            shipto_territory_join = (
-                f" AND s.TERRITORY_ID = '{self._sql_escape(territory_id)}'" if territory_id else ""
-            )
+            product_filter_e = f" AND e.Product = '{self._sql_escape(product)}'" if product else ""
+            product_filter_d = f" AND d.Product = '{self._sql_escape(product)}'" if product else ""
             return {
                 "analysis": (
                     "Resolve the account to a stable HCO_ID, then inspect affiliated providers, "
-                    "non-retail volume with ship-to mapping, and any retail activity tied to affiliated NPIs."
+                    "non-retail volume, and any retail DDD activity tied to affiliated NPIs."
                 ),
                 "queries": [
                     {
                         "name": "account_identity",
-                        "purpose": "Confirm the resolved account identifier and current master-data attributes.",
+                        "purpose": "Confirm the resolved account identifier and current HCP records.",
                         "sql": (
-                            "SELECT DISTINCT HCO_ID, HCO_NAME, ADDRESS, CITY, STATE, ZIP, ACCOUNT_TYPE, RETAIL_FLAG "
-                            f"FROM onekey_hcp WHERE HCO_ID = '{safe_hco_id}' LIMIT 100"
+                            "SELECT DISTINCT HCP_ID, HCP_Name, NPI, Specialty, Status, "
+                            "HCO_ID, HCO_Name, Affiliation_Type, Retail "
+                            f"FROM iqvia_onekey WHERE HCO_ID = '{safe_hco_id}' LIMIT 100"
                         ),
                     },
                     {
-                        "name": "affiliated_prescribers",
-                        "purpose": "List affiliated providers, their specialties, and provider-level credit signals.",
+                        "name": "nonretail_volume",
+                        "purpose": "Check non-retail outlet-level volume at HCO grain.",
                         "sql": (
-                            "SELECT a.AFFILIATION_ID, a.HCO_ID, a.HCP_ID, o.HCP_NAME, o.NPI, o.SPECIALTY, "
-                            "o.SPECIALTY_CODE, s.SPECIALTY_NAME, s.CREDITABLE_FLAG, o.CREDIT_FLAG, "
-                            "o.RETAIL_FLAG, o.ACCOUNT_TYPE, a.AFFILIATION_TYPE "
-                            "FROM affiliation_onekey a "
-                            "LEFT JOIN onekey_hcp o ON a.HCP_ID = o.RECORD_ID "
-                            "LEFT JOIN speciality s ON o.SPECIALTY_CODE = s.SPECIALTY_CODE "
-                            f"WHERE a.HCO_ID = '{safe_hco_id}' ORDER BY a.HCP_ID LIMIT 100"
-                        ),
-                    },
-                    {
-                        "name": "nonretail_with_shipto",
-                        "purpose": "Check outlet-level volume and ship-to territory mapping at HCO grain.",
-                        "sql": (
-                            "SELECT e.OUTLET_ID, e.HCO_ID, e.PRODUCT, e.MONTH, e.TRX_VOLUME, "
-                            "s.SHIP_TO_ID, s.UNITS_SHIPPED, s.TERRITORY_ID, s.DISTRICT, s.REGION "
-                            "FROM exponent_nonretail e "
-                            "LEFT JOIN ship_to_867 s "
-                            "  ON e.HCO_ID = s.HCO_ID "
-                            " AND e.PRODUCT = s.PRODUCT "
-                            " AND e.MONTH = s.MONTH"
-                            f"{shipto_territory_join} "
+                            "SELECT e.HCO_ID, e.HCO_Name, e.Product, e.Period, e.Units, e.Territory "
+                            "FROM exponent e "
                             f"WHERE e.HCO_ID = '{safe_hco_id}'"
                             f"{product_filter_e} "
-                            "ORDER BY e.MONTH DESC LIMIT 100"
+                            "LIMIT 100"
+                        ),
+                    },
+                    {
+                        "name": "shipment_data",
+                        "purpose": "Check shipment records to ship-to locations matching this account.",
+                        "sql": (
+                            "SELECT s.Shipment_Date, s.Product, s.Units, s.Distributor, "
+                            "s.Ship_To_ID, s.Ship_To_Name, s.ZIP "
+                            "FROM \"867_shipment\" s "
+                            f"WHERE UPPER(s.Ship_To_Name) LIKE UPPER('%{safe_hco_id}%') "
+                            f"OR s.ZIP IN (SELECT HCO_ZIP FROM iqvia_onekey WHERE HCO_ID = '{safe_hco_id}') "
+                            "LIMIT 100"
                         ),
                     },
                     {
                         "name": "retail_volume_for_affiliates",
                         "purpose": "Check whether affiliated providers have retail DDD activity for the same product.",
                         "sql": (
-                            "SELECT d.NPI, o.HCP_NAME, o.HCO_ID, o.HCO_NAME, d.PRODUCT, d.MONTH, d.NBRX, d.TRX "
-                            "FROM affiliation_onekey a "
-                            "JOIN onekey_hcp o ON a.HCP_ID = o.RECORD_ID "
-                            "JOIN ddd_retial d ON o.NPI = d.NPI "
-                            f"WHERE a.HCO_ID = '{safe_hco_id}'"
+                            "SELECT d.NPI, d.HCP_ID, o.HCP_Name, o.HCO_ID, o.HCO_Name, d.Product, d.Month, d.Units, d.Territory "
+                            "FROM iqvia_onekey o "
+                            "JOIN iqvia_ddd d ON o.HCP_ID = d.HCP_ID "
+                            f"WHERE o.HCO_ID = '{safe_hco_id}'"
                             f"{product_filter_d} "
-                            "ORDER BY d.MONTH DESC, o.HCP_NAME LIMIT 100"
+                            "ORDER BY d.Month, o.HCP_Name LIMIT 100"
                         ),
                     },
                 ],
@@ -768,3 +773,9 @@ def get_sql_agent(database: Database | None = None) -> LangChainSQLAgent:
             raise ValueError("Database required for first initialization")
         _agent_instance = LangChainSQLAgent(database)
     return _agent_instance
+
+
+def reset_sql_agent() -> None:
+    """Clear the cached SQL agent so it can be rebuilt with new metadata."""
+    global _agent_instance
+    _agent_instance = None

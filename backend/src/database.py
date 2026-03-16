@@ -59,6 +59,37 @@ class Database:
             return pd.read_excel(file_path, sheet_name=None, engine="xlrd")
         raise ValueError(f"Unsupported Excel extension: {file_name}")
 
+    @staticmethod
+    def _fix_unnamed_headers(df: pd.DataFrame) -> pd.DataFrame:
+        """Fix sheets where the real header row is stored as data row 0.
+
+        The new Excel format has an empty leading column and the actual column
+        names sitting in the first data row instead of the Excel header row.
+        pandas reads these as ``Unnamed: 0``, ``Unnamed: 1``, etc.
+
+        This method:
+        1. Detects columns whose names start with ``Unnamed:``.
+        2. If **all** columns are unnamed, promotes row 0 to the header and
+           drops it from the data.
+        3. Drops any remaining all-NaN columns (e.g. the empty leading column).
+        """
+        unnamed_count = sum(1 for c in df.columns if str(c).startswith("Unnamed:"))
+        if unnamed_count == 0 or unnamed_count < len(df.columns) * 0.5:
+            return df  # headers look normal
+
+        if df.empty:
+            return df
+
+        # Promote the first data row to column headers
+        new_headers = [str(v).strip() if pd.notna(v) else f"col_{i}" for i, v in enumerate(df.iloc[0])]
+        df = df.iloc[1:].reset_index(drop=True)
+        df.columns = new_headers
+
+        # Drop all-NaN columns (the empty leading column)
+        df = df.dropna(axis=1, how="all")
+
+        return df
+
     # ── loader ────────────────────────────────────────────────────────────────
     def load_files(self):
         if not os.path.isdir(self.data_path):
@@ -87,6 +118,11 @@ class Database:
                         continue
                     sheet_dfs = self._read_excel(fpath, fname)
                     for sheet_name, df in sheet_dfs.items():
+                        if df.empty:
+                            continue
+
+                        # Fix sheets where pandas read Unnamed: headers
+                        df = self._fix_unnamed_headers(df)
                         if df.empty:
                             continue
                         

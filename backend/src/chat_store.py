@@ -64,9 +64,13 @@ class ChatStore:
     @staticmethod
     def _row_to_message(row: sqlite3.Row) -> dict[str, Any]:
         metadata = row["metadata"]
+        try:
+            chat_id = row["chat_id"]
+        except (KeyError, IndexError):
+            chat_id = None
         return {
             "id": row["id"],
-            "chat_id": row["chat_id"],
+            "chat_id": chat_id,
             "role": row["role"],
             "content": row["content"],
             "created_at": row["created_at"],

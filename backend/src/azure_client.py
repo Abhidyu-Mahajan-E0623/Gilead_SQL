@@ -64,6 +64,51 @@ class AzureOpenAIClient:
             LOGGER.warning("Chat completion failed: %s", exc)
             return None
 
+    def generate_reasoning_steps(
+        self,
+        *,
+        user_message: str,
+        focus_description: str = "",
+    ) -> list[str]:
+        """Ask the LLM for 3-6 short reasoning steps describing its analysis approach.
+
+        Returns an empty list on any failure so callers can fall back gracefully.
+        """
+        if not self._client:
+            return []
+
+        import time as _time
+        seed_hint = f" (seed={int(_time.time()) % 9973})"
+        focus_hint = f" The query focuses on: {focus_description}." if focus_description else ""
+        system_prompt = (
+            "You are an internal reasoning engine for a CRM support chatbot. "
+            "Given the user query, output 3 to 6 short sentences (one per line) "
+            "describing the analytical steps you would take to answer it. "
+            "Each line should start with 'I am' and describe a concrete verification step "
+            "(e.g. checking SQL data, verifying identifiers, cross-referencing records). "
+            "Vary your phrasing and step order each time — never repeat the exact same wording. "
+            "Do NOT answer the question itself. Do NOT use bullet points or numbering. "
+            "Keep each line under 120 characters. Output only the lines, nothing else."
+            + focus_hint + seed_hint
+        )
+        try:
+            raw = self.chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message.strip()},
+                ],
+                temperature=0.7,
+                max_tokens=200,
+            )
+            if not raw:
+                return []
+            lines = [line.strip() for line in raw.strip().splitlines() if line.strip()]
+            # Sanitise: drop any lines that look like the model answered the question
+            return [l for l in lines if len(l) > 10 and not l.lower().startswith("sure")][:6]
+        except Exception as exc:
+            LOGGER.warning("Reasoning-step generation failed: %s", exc)
+            return []
+
     def summarize_chat_title(
         self,
         *,

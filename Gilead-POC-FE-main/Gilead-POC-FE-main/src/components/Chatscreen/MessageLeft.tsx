@@ -45,6 +45,13 @@ const MessageLeft: React.FC<MessageLeftProps> = ({ content, isLoading = false, r
   const activePreview = reasoningPreview || FALLBACK_REASONING_PREVIEW;
   const previewSignature = `${activePreview.summary}::${activePreview.details.join('||')}`;
 
+  // Reset animation state whenever the preview content changes (e.g. SSE steps arrive)
+  useEffect(() => {
+    setCompletedDetailsCount(0);
+    setTypedCharacters(0);
+    setIsRevealComplete(false);
+  }, [previewSignature]);
+
   useEffect(() => {
     if (!isLoading || (content && content.trim() !== '')) {
       return;

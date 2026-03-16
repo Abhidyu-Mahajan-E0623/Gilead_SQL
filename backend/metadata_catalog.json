@@ -3,13 +3,107 @@
   "rag_type": "semantic_layer",
   "tables": [
     {
-      "table_name": "affiliation_onekey",
-      "business_purpose": "Auto-discovered table affiliation_onekey",
+      "table_name": "867_shipment",
+      "business_purpose": "Auto-discovered table 867_shipment",
       "grain": "inferred",
       "columns": [
         {
-          "name": "AFFILIATION_ID",
-          "description": "Column AFFILIATION_ID",
+          "name": "Shipment_Date",
+          "description": "Column Shipment_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Product",
+          "description": "Column Product",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Units",
+          "description": "Column Units",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Distributor",
+          "description": "Column Distributor",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Ship_To_ID",
+          "description": "Column Ship_To_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Ship_To_Name",
+          "description": "Column Ship_To_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "ZIP",
+          "description": "Column ZIP",
+          "type": "INTEGER"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "alignment",
+      "business_purpose": "Auto-discovered table alignment",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "ZIP",
+          "description": "Column ZIP",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Region",
+          "description": "Column Region",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Area",
+          "description": "Column Area",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "business_rules",
+      "business_purpose": "Auto-discovered table business_rules",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "Rule_ID",
+          "description": "Column Rule_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Policy Name",
+          "description": "Column Policy Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Rule Description",
+          "description": "Column Rule Description",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "crm",
+      "business_purpose": "Auto-discovered table crm",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "CRM_ID",
+          "description": "Column CRM_ID",
           "type": "VARCHAR"
         },
         {
@@ -18,21 +112,145 @@
           "type": "VARCHAR"
         },
         {
-          "name": "HCO_ID",
-          "description": "Column HCO_ID",
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
           "type": "VARCHAR"
         },
         {
-          "name": "AFFILIATION_TYPE",
-          "description": "Column AFFILIATION_TYPE",
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Last_Call_Date",
+          "description": "Column Last_Call_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Call_Frequency",
+          "description": "Column Call_Frequency",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "DNC_Flag",
+          "description": "Column DNC_Flag",
           "type": "VARCHAR"
         }
       ],
       "joins": []
     },
     {
-      "table_name": "alignement_file",
-      "business_purpose": "Auto-discovered table alignement_file",
+      "table_name": "dcr",
+      "business_purpose": "Auto-discovered table dcr",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "Change_Date",
+          "description": "Column Change_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Entity",
+          "description": "Column Entity",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Entity_ID",
+          "description": "Column Entity_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Change_Type",
+          "description": "Column Change_Type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Details",
+          "description": "Column Details",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "exponent",
+      "business_purpose": "Auto-discovered table exponent",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "HCO_ID",
+          "description": "Column HCO_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCO_Name",
+          "description": "Column HCO_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Product",
+          "description": "Column Product",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Period",
+          "description": "Column Period",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Units",
+          "description": "Column Units",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "iqvia_ddd",
+      "business_purpose": "Auto-discovered table iqvia_ddd",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "NPI",
+          "description": "Column NPI",
+          "type": "INTEGER"
+        },
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Product",
+          "description": "Column Product",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Month",
+          "description": "Column Month",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Units",
+          "description": "Column Units",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "iqvia_onekey",
+      "business_purpose": "Auto-discovered table iqvia_onekey",
       "grain": "inferred",
       "columns": [
         {
@@ -41,113 +259,49 @@
           "type": "VARCHAR"
         },
         {
-          "name": "NPI",
-          "description": "Column NPI",
-          "type": "BIGINT"
-        },
-        {
-          "name": "TERRITORY_ID",
-          "description": "Column TERRITORY_ID",
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
           "type": "VARCHAR"
         },
-        {
-          "name": "ZIP",
-          "description": "Column ZIP",
-          "type": "TIMESTAMP_NS"
-        },
-        {
-          "name": "EFFECTIVE_DATE",
-          "description": "Column EFFECTIVE_DATE",
-          "type": "TIMESTAMP_NS"
-        }
-      ],
-      "joins": []
-    },
-    {
-      "table_name": "dcr_logs",
-      "business_purpose": "Auto-discovered table dcr_logs",
-      "grain": "inferred",
-      "columns": [
-        {
-          "name": "DCR_ID",
-          "description": "Column DCR_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "REQUEST_TYPE",
-          "description": "Column REQUEST_TYPE",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "ENTITY",
-          "description": "Column ENTITY",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "OLD_HCP_ID",
-          "description": "Column OLD_HCP_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "MASTER_HCP_ID",
-          "description": "Column MASTER_HCP_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "DESCRIPTION",
-          "description": "Column DESCRIPTION",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "DATE",
-          "description": "Column DATE",
-          "type": "TIMESTAMP_NS"
-        }
-      ],
-      "joins": []
-    },
-    {
-      "table_name": "ddd_retial",
-      "business_purpose": "Auto-discovered table ddd_retial",
-      "grain": "inferred",
-      "columns": [
         {
           "name": "NPI",
           "description": "Column NPI",
-          "type": "BIGINT"
+          "type": "INTEGER"
         },
         {
-          "name": "PRODUCT",
-          "description": "Column PRODUCT",
+          "name": "Master_ID",
+          "description": "Column Master_ID",
           "type": "VARCHAR"
         },
         {
-          "name": "MONTH",
-          "description": "Column MONTH",
+          "name": "Specialty",
+          "description": "Column Specialty",
           "type": "VARCHAR"
         },
         {
-          "name": "NBRX",
-          "description": "Column NBRX",
-          "type": "BIGINT"
+          "name": "Status",
+          "description": "Column Status",
+          "type": "VARCHAR"
         },
         {
-          "name": "TRX",
-          "description": "Column TRX",
-          "type": "BIGINT"
-        }
-      ],
-      "joins": []
-    },
-    {
-      "table_name": "exponent_nonretail",
-      "business_purpose": "Auto-discovered table exponent_nonretail",
-      "grain": "inferred",
-      "columns": [
-        {
-          "name": "OUTLET_ID",
-          "description": "Column OUTLET_ID",
+          "name": "HCP_Address",
+          "description": "Column HCP_Address",
           "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_City",
+          "description": "Column HCP_City",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_State",
+          "description": "Column HCP_State",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_ZIP",
+          "description": "Column HCP_ZIP",
+          "type": "INTEGER"
         },
         {
           "name": "HCO_ID",
@@ -155,197 +309,114 @@
           "type": "VARCHAR"
         },
         {
-          "name": "PRODUCT",
-          "description": "Column PRODUCT",
+          "name": "HCO_Name",
+          "description": "Column HCO_Name",
           "type": "VARCHAR"
         },
         {
-          "name": "MONTH",
-          "description": "Column MONTH",
+          "name": "HCO_Address",
+          "description": "Column HCO_Address",
           "type": "VARCHAR"
         },
         {
-          "name": "TRX_VOLUME",
-          "description": "Column TRX_VOLUME",
-          "type": "BIGINT"
+          "name": "HCO_City",
+          "description": "Column HCO_City",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCO_State",
+          "description": "Column HCO_State",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCO_ZIP",
+          "description": "Column HCO_ZIP",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Affiliation_Type",
+          "description": "Column Affiliation_Type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Retail",
+          "description": "Column Retail",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Digital_DNC_Flag",
+          "description": "Column Digital_DNC_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Inperson_DNC_Flag",
+          "description": "Column Inperson_DNC_Flag",
+          "type": "VARCHAR"
         }
       ],
       "joins": []
     },
     {
-      "table_name": "onekey_hcp",
-      "business_purpose": "Auto-discovered table onekey_hcp",
+      "table_name": "marketing_opt",
+      "business_purpose": "Auto-discovered table marketing_opt",
       "grain": "inferred",
       "columns": [
         {
-          "name": "RECORD_ID",
-          "description": "Column RECORD_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "NPI",
-          "description": "Column NPI",
-          "type": "BIGINT"
-        },
-        {
-          "name": "HCP_NAME",
-          "description": "Column HCP_NAME",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "SPECIALTY",
-          "description": "Column SPECIALTY",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "SPECIALTY_CODE",
-          "description": "Column SPECIALTY_CODE",
-          "type": "BIGINT"
-        },
-        {
-          "name": "RECORD_STATUS",
-          "description": "Column RECORD_STATUS",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "MASTER_HCP_ID",
-          "description": "Column MASTER_HCP_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "CREDIT_FLAG",
-          "description": "Column CREDIT_FLAG",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "HCO_ID",
-          "description": "Column HCO_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "HCO_NAME",
-          "description": "Column HCO_NAME",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "ADDRESS",
-          "description": "Column ADDRESS",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "CITY",
-          "description": "Column CITY",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "STATE",
-          "description": "Column STATE",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "ZIP",
-          "description": "Column ZIP",
-          "type": "BIGINT"
-        },
-        {
-          "name": "ACCOUNT_TYPE",
-          "description": "Column ACCOUNT_TYPE",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "RETAIL_FLAG",
-          "description": "Column RETAIL_FLAG",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "REPORTING_STATUS",
-          "description": "Column REPORTING_STATUS",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "RECORD_CREATION_DATE",
-          "description": "Column RECORD_CREATION_DATE",
+          "name": "Opt_Out_Date",
+          "description": "Column Opt_Out_Date",
           "type": "TIMESTAMP_NS"
         },
         {
-          "name": "RECORD_EXPIRATION_DATE",
-          "description": "Column RECORD_EXPIRATION_DATE",
-          "type": "TIMESTAMP_NS"
-        }
-      ],
-      "joins": []
-    },
-    {
-      "table_name": "ship_to_867",
-      "business_purpose": "Auto-discovered table ship_to_867",
-      "grain": "inferred",
-      "columns": [
-        {
-          "name": "SHIP_TO_ID",
-          "description": "Column SHIP_TO_ID",
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
           "type": "VARCHAR"
         },
         {
-          "name": "HCO_ID",
-          "description": "Column HCO_ID",
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
           "type": "VARCHAR"
         },
         {
-          "name": "PRODUCT",
-          "description": "Column PRODUCT",
+          "name": "Channel",
+          "description": "Column Channel",
           "type": "VARCHAR"
         },
         {
-          "name": "MONTH",
-          "description": "Column MONTH",
+          "name": "Campaign",
+          "description": "Column Campaign",
           "type": "VARCHAR"
         },
         {
-          "name": "UNITS_SHIPPED",
-          "description": "Column UNITS_SHIPPED",
-          "type": "BIGINT"
-        },
-        {
-          "name": "TERRITORY_ID",
-          "description": "Column TERRITORY_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "DISTRICT",
-          "description": "Column DISTRICT",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "REGION",
-          "description": "Column REGION",
+          "name": "Action",
+          "description": "Column Action",
           "type": "VARCHAR"
         }
       ],
       "joins": []
     },
     {
-      "table_name": "speciality",
-      "business_purpose": "Auto-discovered table speciality",
+      "table_name": "sales_credit_flag",
+      "business_purpose": "Auto-discovered table sales_credit_flag",
       "grain": "inferred",
       "columns": [
         {
-          "name": "SPECIALTY_CODE",
-          "description": "Column SPECIALTY_CODE",
-          "type": "BIGINT"
+          "name": "Specialty_Code",
+          "description": "Column Specialty_Code",
+          "type": "INTEGER"
         },
         {
-          "name": "SPECIALTY_NAME",
-          "description": "Column SPECIALTY_NAME",
+          "name": "Specialty",
+          "description": "Column Specialty",
           "type": "VARCHAR"
         },
         {
-          "name": "THERAPY_AREA",
-          "description": "Column THERAPY_AREA",
+          "name": "Creditable",
+          "description": "Column Creditable",
           "type": "VARCHAR"
         },
         {
-          "name": "CREDITABLE_FLAG",
-          "description": "Column CREDITABLE_FLAG",
+          "name": "IC_Credit",
+          "description": "Column IC_Credit",
           "type": "VARCHAR"
         }
       ],
@@ -354,68 +425,32 @@
   ],
   "canonical_relationships": [
     {
-      "from": "affiliation_onekey.HCP_ID",
-      "to": "alignement_file.HCP_ID",
-      "confidence": 0.8,
-      "type": "value_overlap"
-    },
-    {
-      "from": "affiliation_onekey.HCO_ID",
-      "to": "onekey_hcp.HCO_ID",
+      "from": "867_shipment.Product",
+      "to": "iqvia_ddd.Product",
       "confidence": 1.0,
       "type": "value_overlap"
     },
     {
-      "from": "alignement_file.NPI",
-      "to": "onekey_hcp.NPI",
+      "from": "alignment.Territory",
+      "to": "iqvia_ddd.Territory",
+      "confidence": 0.67,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_ID",
+      "to": "marketing_opt.HCP_ID",
       "confidence": 1.0,
       "type": "value_overlap"
     },
     {
-      "from": "dcr_logs.MASTER_HCP_ID",
-      "to": "onekey_hcp.MASTER_HCP_ID",
+      "from": "crm.HCP_Name",
+      "to": "marketing_opt.HCP_Name",
       "confidence": 1.0,
       "type": "value_overlap"
     },
     {
-      "from": "ddd_retial.PRODUCT",
-      "to": "exponent_nonretail.PRODUCT",
-      "confidence": 1.0,
-      "type": "value_overlap"
-    },
-    {
-      "from": "ddd_retial.MONTH",
-      "to": "exponent_nonretail.MONTH",
-      "confidence": 0.8,
-      "type": "value_overlap"
-    },
-    {
-      "from": "ddd_retial.PRODUCT",
-      "to": "ship_to_867.PRODUCT",
-      "confidence": 1.0,
-      "type": "value_overlap"
-    },
-    {
-      "from": "ddd_retial.MONTH",
-      "to": "ship_to_867.MONTH",
-      "confidence": 0.8,
-      "type": "value_overlap"
-    },
-    {
-      "from": "exponent_nonretail.HCO_ID",
-      "to": "ship_to_867.HCO_ID",
-      "confidence": 1.0,
-      "type": "value_overlap"
-    },
-    {
-      "from": "exponent_nonretail.PRODUCT",
-      "to": "ship_to_867.PRODUCT",
-      "confidence": 1.0,
-      "type": "value_overlap"
-    },
-    {
-      "from": "exponent_nonretail.MONTH",
-      "to": "ship_to_867.MONTH",
+      "from": "iqvia_onekey.Specialty",
+      "to": "sales_credit_flag.Specialty",
       "confidence": 1.0,
       "type": "value_overlap"
     }

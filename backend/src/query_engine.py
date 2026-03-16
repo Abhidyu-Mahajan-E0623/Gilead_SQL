@@ -77,6 +77,14 @@ def _metadata_needs_refresh() -> bool:
     try:
         metadata = json.loads(METADATA_CATALOG_PATH.read_text(encoding="utf-8"))
         catalog_tables = {t["table_name"] for t in metadata.get("tables", []) if t.get("table_name")}
+        for table in metadata.get("tables", []):
+            columns = table.get("columns", []) or []
+            if not columns:
+                return True
+            for col in columns:
+                name = str(col.get("name", "")).strip()
+                if not name or name.lower().startswith("unnamed"):
+                    return True
     except Exception:
         return True
     current = set(_get_db().list_tables()) - {"temp_df"}
@@ -91,8 +99,11 @@ def process_query(question: str, session_id: str, steward_steps: list[str] | Non
 
     if _metadata_needs_refresh():
         from .metadata_builder import MetadataBuilder
+        from .sql_agent import reset_sql_agent
         try:
             MetadataBuilder(_get_db()).build()
+            reset_sql_agent()
+            sql_agent = None
         except Exception as e:
             return {"response": f"Metadata generation failed: {e}", "success": False}
 

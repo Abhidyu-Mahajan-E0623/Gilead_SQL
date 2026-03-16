@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
+import time
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 
 from .config import load_settings, DB_PATH, METADATA_CATALOG_PATH, DATA_DIR
 from .azure_client import AzureOpenAIClient
@@ -232,6 +236,7 @@ async def send_message(chat_id: str, body: SendMessageRequest):
                 user_message=body.content,
                 conversation_history=history,
                 chat_id=chat_id,
+                session_id=chat_id,
             )
             answer_text = result.content
             metadata = {
@@ -239,10 +244,13 @@ async def send_message(chat_id: str, body: SendMessageRequest):
                 "matched_title": result.matched_title,
                 "confidence": result.confidence,
             }
-        except Exception:
+        except Exception as e:
+            import traceback
             LOGGER.exception("Responder error")
-
-    assistant_msg = chat_store.add_message(chat_id, "assistant", answer_text, metadata)
+            with open("error_dump.txt", "w") as f:
+                f.write(traceback.format_exc())
+            answer_text = f"Error: {repr(e)}"
+    assistant_msg = chat_store.add_message(chat_id, "assistant", answer_text, metadata=metadata)
     updated_chat = _refresh_chat_title(chat_id, body.content, answer_text) or chat_store.get_chat(chat_id)
 
     return {
@@ -277,6 +285,73 @@ async def reasoning_preview(chat_id: str, body: SendMessageRequest):
             "I am mapping the request to the relevant data checks before drafting the answer.",
         ],
     }
+
+
+# ── SSE Reasoning Stream ─────────────────────────────────────────────────────
+_reasoning_cooldowns: dict[str, float] = {}
+_REASONING_COOLDOWN_SEC = 0.5
+
+
+@app.get("/api/chats/{chat_id}/reasoning-stream")
+async def reasoning_stream(
+    chat_id: str,
+    content: str = Query(..., min_length=1, max_length=6000),
+):
+    """Stream LLM-generated reasoning steps as Server-Sent Events.
+
+    The frontend connects to this endpoint immediately after the user sends a
+    message.  Each reasoning step is streamed as a separate SSE event so the
+    "Thinking" panel can update in real time.
+    """
+    c = chat_store.get_chat(chat_id) if chat_store else None
+    if not c:
+        raise HTTPException(404, "Chat not found")
+
+    # Per-chat cooldown to avoid double-fire / rate-limit abuse
+    now = time.monotonic()
+    last = _reasoning_cooldowns.get(chat_id, 0.0)
+    if now - last < _REASONING_COOLDOWN_SEC:
+        # Return an empty stream; frontend will keep its local fallback
+        async def _empty():
+            yield "event: done\ndata: {}\n\n"
+        return StreamingResponse(_empty(), media_type="text/event-stream")
+    _reasoning_cooldowns[chat_id] = now
+
+    history = chat_store.list_messages(chat_id) if chat_store else []
+
+    async def _generate():
+        try:
+            if responder:
+                preview = await asyncio.to_thread(
+                    responder.build_reasoning_preview,
+                    content,
+                    history,
+                )
+                steps = preview.details
+                total = len(steps)
+                summary_payload = json.dumps({"summary": preview.summary, "total": total})
+                yield f"event: summary\ndata: {summary_payload}\n\n"
+                for idx, step in enumerate(steps):
+                    payload = json.dumps({"step": step, "index": idx, "total": total})
+                    yield f"data: {payload}\n\n"
+                    await asyncio.sleep(0.12)  # 120ms gap for natural pacing
+            else:
+                fallback = json.dumps({"step": "Reviewing the request.", "index": 0, "total": 1})
+                yield f"data: {fallback}\n\n"
+        except Exception as exc:
+            LOGGER.warning("SSE reasoning stream error: %s", exc)
+        finally:
+            yield "event: done\ndata: {}\n\n"
+
+    return StreamingResponse(
+        _generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 # ── Session management ───────────────────────────────────────────────────────

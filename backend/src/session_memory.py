@@ -21,6 +21,11 @@ REFERENCE_PATTERNS = [
     r'\b(its (?:volume|credit|territory|status|details|alignment|mapping))\b',
 ]
 REFERENCE_RE = re.compile('|'.join(REFERENCE_PATTERNS), re.IGNORECASE)
+EXPLICIT_ID_RE = re.compile(
+    r"\bNPI\b\s*[:#-]?\s*\d{10}\b|\b\d{10}\b|\bHCO[-_][A-Z0-9-]+\b|\bHCP[-_][A-Z0-9-]+\b|"
+    r"\b[A-Z]{2,5}-\d{2,4}\b",
+    re.IGNORECASE,
+)
 
 ENTITY_KEYWORDS = {
     'hcp': ['hcp', 'hcps', 'doctor', 'doctors', 'physician', 'physicians', 'provider', 'providers'],
@@ -128,6 +133,9 @@ def clear_session(session_id: str):
 
 def resolve_references(session_id: str, user_query: str) -> Dict[str, Any]:
     result = {'has_references': False, 'resolved_entities': {}, 'context_hint': '', 'ambiguous': False, 'clarification_question': None}
+    # If the user supplies explicit identifiers, skip reference resolution.
+    if EXPLICIT_ID_RE.search(user_query or ""):
+        return result
     if not REFERENCE_RE.search(user_query):
         return result
     result['has_references'] = True

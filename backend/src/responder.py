@@ -98,6 +98,12 @@ STATUS_TOPIC_PATTERN = re.compile(
     r"\b(status|active|inactive|retired|merged|duplicate|credit|flag)\b",
     re.IGNORECASE,
 )
+SIMPLIFY_REQUEST_PATTERN = re.compile(
+    r"\b(explain|simplify|summarize|summary|in\s+(?:simple|plain|easy)\s+language|"
+    r"easy\s+language|plain\s+english|layman(?:'s)?\s+terms|"
+    r"break\s+it\s+down|can\s+you\s+explain)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(slots=True)
@@ -299,6 +305,44 @@ class ChatResponder:
             + f"\nLatest follow-up question: {user_message.strip()}"
         )
 
+    @staticmethod
+    def _is_simplification_request(user_message: str) -> bool:
+        return bool(SIMPLIFY_REQUEST_PATTERN.search(user_message))
+
+    def _simplify_previous_answer(self, previous_answer: str) -> str:
+        if not previous_answer.strip():
+            return ""
+        if self.azure_client.is_ready:
+            simplified = self.azure_client.chat_completion(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Rewrite the response in simple, plain language for a non-technical reader. "
+                            "Use 4-7 short sentences. Do not use headings or bullet points. "
+                            "Keep facts and numbers unchanged."
+                        ),
+                    },
+                    {"role": "user", "content": previous_answer.strip()},
+                ],
+                temperature=0.2,
+                max_tokens=220,
+            )
+            if simplified:
+                return simplified.strip()
+
+        # Fallback: strip headings/bullets and keep a compact preview.
+        lines = [line.strip() for line in previous_answer.splitlines() if line.strip()]
+        cleaned: list[str] = []
+        for line in lines:
+            if line.startswith("**") and line.endswith("**"):
+                continue
+            if line.startswith("-") or re.match(r"^\d+\.", line):
+                line = re.sub(r"^(-|\d+\.)\s*", "", line)
+            cleaned.append(line)
+        compact = " ".join(cleaned)
+        return text_preview(compact, length=420) if compact else previous_answer.strip()
+
     def _describe_query_focus(
         self,
         user_message: str,
@@ -335,11 +379,12 @@ class ChatResponder:
             return " ".join(keyword_tokens[:8])
         return "the current request"
 
-    def build_reasoning_preview(
+    def _build_hardcoded_reasoning_preview(
         self,
         user_message: str,
         conversation_history: list[dict[str, Any]] | None = None,
     ) -> ReasoningPreview:
+        """Original regex-based reasoning preview — used as fallback when LLM is unavailable."""
         focus = self._describe_query_focus(user_message, conversation_history)
         is_follow_up = self._looks_like_follow_up(user_message, conversation_history)
         is_dcr_related = bool(DCR_TOPIC_PATTERN.search(user_message))
@@ -352,15 +397,9 @@ class ChatResponder:
         details = [f"I am understanding the user query and the key request around {focus}."]
 
         if is_follow_up:
-            previous_user = self._last_message_for_role(conversation_history, "user")
-            if previous_user:
-                details.append(
-                    "I am applying the recent chat context so this follow-up stays aligned with the earlier thread: "
-                    + self._message_preview(previous_user, max_length=110)
-                    + "."
-                )
-            else:
-                details.append("I am applying recent chat context so the follow-up keeps the same subject and filters.")
+            details.append(
+                "I am applying recent context from this chat so the follow-up stays aligned with the earlier request."
+            )
 
         if npi_match:
             details.append(f"I am preparing SQL to verify NPI {npi_match.group(1)} across provider, alignment, and credit-related records.")
@@ -395,12 +434,37 @@ class ChatResponder:
         summary = f"Tracing {focus} through the relevant data checks."
         return ReasoningPreview(summary=summary, details=details)
 
+    def build_reasoning_preview(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> ReasoningPreview:
+        """Try LLM-generated reasoning steps first; fall back to hardcoded regex logic."""
+        focus = self._describe_query_focus(user_message, conversation_history)
+
+        # Attempt LLM-powered reasoning
+        if self.azure_client.is_ready:
+            try:
+                llm_steps = self.azure_client.generate_reasoning_steps(
+                    user_message=user_message,
+                    focus_description=focus,
+                )
+                if llm_steps and len(llm_steps) >= 2:
+                    summary = f"Tracing {focus} through the relevant data checks."
+                    return ReasoningPreview(summary=summary, details=llm_steps)
+            except Exception:
+                LOGGER.warning("LLM reasoning preview failed, falling back to hardcoded logic")
+
+        # Fallback: deterministic regex-based preview
+        return self._build_hardcoded_reasoning_preview(user_message, conversation_history)
+
     def _prepare_query_message(
         self,
         user_message: str,
         conversation_history: list[dict[str, Any]] | None = None,
     ) -> str:
         prepared_message = user_message
+        used_identifier_context = False
         if conversation_history:
             for index in reversed(range(len(conversation_history))):
                 message = conversation_history[index]
@@ -412,7 +476,11 @@ class ChatResponder:
                         original_user = str(conversation_history[index - 1].get("content", "")).strip()
                         if original_user:
                             prepared_message = f"{original_user}\n{user_message}"
+                            used_identifier_context = True
                     break
+
+        if used_identifier_context:
+            return prepared_message
 
         rewritten_follow_up = self._rewrite_follow_up_with_context(prepared_message, conversation_history)
         return rewritten_follow_up or prepared_message
@@ -616,6 +684,18 @@ class ChatResponder:
         chat_id: str | None = None,
         session_id: str | None = None,
     ) -> AssistantResult:
+        if conversation_history and self._is_simplification_request(user_message):
+            previous_answer = self._last_message_for_role(conversation_history, "assistant")
+            if previous_answer:
+                simplified = self._simplify_previous_answer(previous_answer)
+                if simplified:
+                    return AssistantResult(
+                        content=simplified,
+                        matched_inquiry_id=None,
+                        matched_title=None,
+                        confidence=None,
+                    )
+
         if conversation_history:
             last_assistant = next((msg for msg in reversed(conversation_history) if msg.get("role") == "assistant"), None)
             if last_assistant and self._is_dcr_confirmation(user_message, str(last_assistant.get("content", ""))):
