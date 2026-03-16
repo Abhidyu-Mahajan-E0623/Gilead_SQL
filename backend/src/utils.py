@@ -14,6 +14,7 @@ STOPWORDS = {
 }
 
 TOKEN_PATTERN = re.compile(r"[A-Za-z0-9']+")
+TITLE_CLEANUP_PATTERN = re.compile(r"^[\"'`]+|[\"'`]+$")
 
 
 def utc_now_iso() -> str:
@@ -29,13 +30,36 @@ def normalize_text(value: str) -> str:
     return " ".join(TOKEN_PATTERN.findall(value.lower()))
 
 
+def sanitize_chat_title(value: str, fallback: str = "New Chat") -> str:
+    compact = " ".join(value.strip().split())
+    compact = TITLE_CLEANUP_PATTERN.sub("", compact).strip(" .,:;|-")
+    if not compact:
+        return fallback
+
+    if len(compact) <= 60:
+        return compact
+
+    shortened = compact[:60].rsplit(" ", 1)[0].strip()
+    return shortened or compact[:60].strip() or fallback
+
+
 def auto_title_from_message(message: str) -> str:
-    tokens = TOKEN_PATTERN.findall(message.lower())
-    keywords = [t for t in tokens if t not in STOPWORDS and len(t) > 2]
-    chosen = keywords[:6] if keywords else tokens[:6]
+    original_tokens = TOKEN_PATTERN.findall(message)
+    normalized_tokens = [token.lower() for token in original_tokens]
+    keywords = [
+        token
+        for token, normalized in zip(original_tokens, normalized_tokens, strict=False)
+        if normalized not in STOPWORDS and len(token) > 2
+    ]
+    chosen = keywords[:6] if keywords else original_tokens[:6]
     if not chosen:
         return "New Chat"
-    title = " ".join(chosen).title().strip()
-    if len(title) > 52:
-        title = title[:52].rstrip()
-    return title or "New Chat"
+    formatted: list[str] = []
+    for token in chosen:
+        if token.isupper() or token.isdigit():
+            formatted.append(token)
+        elif len(token) <= 4 and token.upper() in {"TRX", "NRX", "HCP", "HCO", "ZIP", "Q1", "Q2", "Q3", "Q4"}:
+            formatted.append(token.upper())
+        else:
+            formatted.append(token.capitalize())
+    return sanitize_chat_title(" ".join(formatted))

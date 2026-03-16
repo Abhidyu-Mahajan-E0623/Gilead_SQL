@@ -17,7 +17,7 @@ from .metadata_builder import MetadataBuilder
 from .responder import ChatResponder
 from .schemas import (
     CreateChatRequest, UpdateChatRequest, SendMessageRequest,
-    ClearSessionRequest,
+    ClearSessionRequest, ReasoningPreviewResponse,
 )
 from .utils import auto_title_from_message
 from .query_engine import process_query as sql_process_query, clear_session, get_session_history
@@ -31,6 +31,29 @@ azure_client: AzureOpenAIClient | None = None
 chat_store: ChatStore | None = None
 responder: ChatResponder | None = None
 database: Database | None = None
+
+
+def _refresh_chat_title(chat_id: str, user_message: str, assistant_message: str | None = None) -> dict[str, Any] | None:
+    if not chat_store:
+        return None
+
+    chat = chat_store.get_chat(chat_id)
+    if not chat:
+        return None
+
+    current_title = (chat.get("title") or "").strip()
+    if current_title and current_title != "New Chat":
+        return chat
+
+    suggested_title = None
+    if azure_client:
+        suggested_title = azure_client.summarize_chat_title(
+            user_message=user_message,
+            assistant_message=assistant_message,
+        )
+
+    next_title = suggested_title or auto_title_from_message(user_message)
+    return chat_store.update_chat(chat_id, title=next_title)
 
 
 @asynccontextmanager
@@ -111,7 +134,7 @@ async def query_endpoint(question: str, session_id: str = "default"):
         try:
             chat = chat_store.get_chat(session_id)
             if not chat:
-                chat_store.create_chat(title=auto_title_from_message(question), chat_id=session_id)
+                chat_store.create_chat(title="New Chat", chat_id=session_id)
             
             history = chat_store.list_messages(session_id)
             chat_store.add_message(session_id, "user", question)
@@ -128,6 +151,7 @@ async def query_endpoint(question: str, session_id: str = "default"):
                 "matched_title": result.matched_title,
                 "confidence": result.confidence,
             })
+            _refresh_chat_title(session_id, question, result.content)
 
             return {"success": True, "response": result.content}
         except Exception as e:
@@ -185,6 +209,8 @@ async def delete_chat(chat_id: str):
 # ── Messages ──────────────────────────────────────────────────────────────────
 @app.get("/api/chats/{chat_id}/messages")
 async def list_messages(chat_id: str):
+    if not chat_store.get_chat(chat_id):
+        raise HTTPException(404, "Chat not found")
     return chat_store.list_messages(chat_id)
 
 
@@ -201,28 +227,55 @@ async def send_message(chat_id: str, body: SendMessageRequest):
     metadata: dict[str, Any] = {}
 
     if responder:
-        result = responder.generate_answer(
-            user_message=body.content,
-            conversation_history=history,
-            chat_id=chat_id,
-        )
-        answer_text = result.content
-        metadata = {
-            "matched_inquiry_id": result.matched_inquiry_id,
-            "matched_title": result.matched_title,
-            "confidence": result.confidence,
-        }
+        try:
+            result = responder.generate_answer(
+                user_message=body.content,
+                conversation_history=history,
+                chat_id=chat_id,
+            )
+            answer_text = result.content
+            metadata = {
+                "matched_inquiry_id": result.matched_inquiry_id,
+                "matched_title": result.matched_title,
+                "confidence": result.confidence,
+            }
+        except Exception:
+            LOGGER.exception("Responder error")
 
     assistant_msg = chat_store.add_message(chat_id, "assistant", answer_text, metadata)
-
-    if c["title"] == "New Chat":
-        chat_store.update_chat(chat_id, title=auto_title_from_message(body.content))
+    updated_chat = _refresh_chat_title(chat_id, body.content, answer_text) or chat_store.get_chat(chat_id)
 
     return {
-        "chat": chat_store.get_chat(chat_id),
+        "chat": updated_chat,
         "user_message": user_msg,
         "assistant_message": assistant_msg,
         **metadata,
+    }
+
+
+@app.post("/api/chats/{chat_id}/reasoning-preview", response_model=ReasoningPreviewResponse)
+async def reasoning_preview(chat_id: str, body: SendMessageRequest):
+    c = chat_store.get_chat(chat_id)
+    if not c:
+        raise HTTPException(404, "Chat not found")
+
+    history = chat_store.list_messages(chat_id)
+    if responder:
+        preview = responder.build_reasoning_preview(
+            user_message=body.content,
+            conversation_history=history,
+        )
+        return {
+            "summary": preview.summary,
+            "details": preview.details,
+        }
+
+    return {
+        "summary": "Thinking through the request.",
+        "details": [
+            "I am reviewing the user question and the recent chat context.",
+            "I am mapping the request to the relevant data checks before drafting the answer.",
+        ],
     }
 
 

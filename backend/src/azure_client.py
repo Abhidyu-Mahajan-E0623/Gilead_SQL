@@ -8,6 +8,7 @@ from typing import Sequence
 from openai import AzureOpenAI
 
 from .config import AzureSettings
+from .utils import sanitize_chat_title
 
 LOGGER = logging.getLogger(__name__)
 
@@ -62,3 +63,35 @@ class AzureOpenAIClient:
         except Exception as exc:
             LOGGER.warning("Chat completion failed: %s", exc)
             return None
+
+    def summarize_chat_title(
+        self,
+        *,
+        user_message: str,
+        assistant_message: str | None = None,
+    ) -> str | None:
+        if not self._client:
+            return None
+
+        assistant_preview = (assistant_message or "").strip()
+        if len(assistant_preview) > 220:
+            assistant_preview = assistant_preview[:220].rsplit(" ", 1)[0].strip()
+
+        prompt = (
+            "Create a concise title for this chat. "
+            "Return only the title, without quotes. "
+            "Use 2 to 6 words and keep it under 50 characters."
+        )
+        content = f"User message:\n{user_message.strip()}"
+        if assistant_preview:
+            content += f"\n\nAssistant response preview:\n{assistant_preview}"
+
+        title = self.chat_completion(
+            messages=[
+                {"role": "system", "content": prompt},
+                {"role": "user", "content": content},
+            ],
+            temperature=0.2,
+            max_tokens=24,
+        )
+        return sanitize_chat_title(title) if title else None

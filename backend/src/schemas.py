@@ -49,6 +49,11 @@ class SendMessageResponse(BaseModel):
     confidence: float | None = None
 
 
+class ReasoningPreviewResponse(BaseModel):
+    summary: str
+    details: list[str]
+
+
 class QueryRequest(BaseModel):
     question: str
     session_id: str = "default"

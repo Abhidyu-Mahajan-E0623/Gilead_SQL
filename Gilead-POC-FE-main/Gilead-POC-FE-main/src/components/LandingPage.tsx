@@ -3,10 +3,12 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { PRESET_QUESTIONS } from '@/utils/constants';
-import { queryChat, getOrCreateSessionId } from '@/utils/api/chat';
+import { createChat, notifyChatHistoryUpdated, storePendingPrompt } from '@/utils/api/chat';
 
 const LandingPage = () => {
   const [inputValue, setInputValue] = useState('');
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   const router = useRouter();
 
   const handleQuestionClick = (question: string) => {
@@ -42,50 +44,22 @@ const LandingPage = () => {
     }
 
     const userQuestion = inputValue.trim();
-    sessionStorage.setItem('pendingQuestion', userQuestion);
-
-    resetTextareaHeight();
-    setInputValue('');
-
-    router.push('/chat/pending');
-
-    // Call API in the background
     try {
-      const sessionId = getOrCreateSessionId();
-      const answer = await queryChat({
-        question: userQuestion,
-        sessionId,
-      });
+      setIsCreatingChat(true);
+      setSubmitError(null);
 
-      // Generate chat ID
-      const mockChatId = 'chat-' + Date.now();
+      const chat = await createChat();
+      storePendingPrompt(chat.id, userQuestion);
+      notifyChatHistoryUpdated();
 
-      // Store messages in sessionStorage
-      sessionStorage.setItem(
-        'currentChatMessages',
-        JSON.stringify([
-          { role: 'user', content: userQuestion },
-          { role: 'assistant', content: answer },
-        ])
-      );
-
-      // Navigate to chat page
-      router.push(`/chat/${mockChatId}`);
+      resetTextareaHeight();
+      setInputValue('');
+      router.push(`/chat/${chat.id}`);
     } catch (error) {
-      console.error('Failed to get response:', error);
-      
-      // Store error state
-      sessionStorage.setItem(
-        'currentChatMessages',
-        JSON.stringify([
-          { role: 'user', content: userQuestion },
-          { role: 'assistant', content: 'Sorry, I encountered an error processing your request. Please try again.' },
-        ])
-      );
-
-      // Navigate anyway with error message
-      const mockChatId = 'chat-' + Date.now();
-      router.push(`/chat/${mockChatId}`);
+      console.error('Failed to create chat:', error);
+      setSubmitError('Unable to start a new chat right now. Please try again.');
+    } finally {
+      setIsCreatingChat(false);
     }
   };
 
@@ -131,6 +105,7 @@ const LandingPage = () => {
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyPress={handleKeyPress}
+                  disabled={isCreatingChat}
                   placeholder="What would you like to know?"
                   rows={1}
                   className="flex-1 text-black custom-scrollbar font-normal text-[16px] leading-[22px] bg-transparent border-none outline-none resize-none overflow-hidden min-h-[22px] max-h-[88px]"
@@ -154,13 +129,15 @@ const LandingPage = () => {
                 <button
                   onClick={handleSubmit}
                   className="flex cursor-pointer items-center justify-end rounded-full transition-colors duration-200 flex-shrink-0"
-                  disabled={!inputValue.trim()}
+                  disabled={!inputValue.trim() || isCreatingChat}
                 >
                   <Image src="/Images/SendIcon.svg" alt="Submit" width={22} height={22} />
                 </button>
               </div>
             </div>
           </div>
+
+          {submitError && <p className="text-sm text-red-600 mt-3">{submitError}</p>}
 
           {/* Preset Questions */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] max-w-4xl mx-auto fade-in delay-3">

@@ -11,7 +11,7 @@ from typing import Any
 
 from .azure_client import AzureOpenAIClient
 from .query_engine import process_query as sql_process_query
-from .utils import STOPWORDS, TOKEN_PATTERN, normalize_text
+from .utils import STOPWORDS, TOKEN_PATTERN, normalize_text, text_preview
 
 LOGGER = logging.getLogger(__name__)
 
@@ -50,6 +50,54 @@ AGGREGATE_QUERY_HINTS = re.compile(
     r"\b(top|bottom|all|every|each|list|show|count|how\s+many|rank|compare|across)\b",
     re.IGNORECASE,
 )
+FOLLOW_UP_PREFIXES = (
+    "what about",
+    "how about",
+    "and ",
+    "also ",
+    "then ",
+    "for that",
+    "for those",
+    "for them",
+    "same ",
+    "that ",
+    "those ",
+    "these ",
+    "it ",
+    "they ",
+    "them ",
+    "can you also",
+    "could you also",
+    "what else",
+)
+FOLLOW_UP_REFERENCE_PATTERN = re.compile(
+    r"\b(it|they|them|those|these|that|same|there|above|previous|earlier|follow[\s-]?up|also)\b",
+    re.IGNORECASE,
+)
+LOW_CONTEXT_QUESTION_PATTERN = re.compile(
+    r"^(why|how|when|where|which|who|what|did|does|is|are|was|were|can)\b",
+    re.IGNORECASE,
+)
+DCR_TOPIC_PATTERN = re.compile(
+    r"\b(dcr|merge|merged|credit|alignment|realignment|duplicate|retroactive|exception|dashboard)\b",
+    re.IGNORECASE,
+)
+TIME_PERIOD_PATTERN = re.compile(
+    r"\b(q[1-4]|quarter|month|ytd|mtd|2024|2025|2026)\b",
+    re.IGNORECASE,
+)
+RETAIL_TOPIC_PATTERN = re.compile(
+    r"\b(retail|retail status|retail flag|trx|nrx|prescrib|volume|dashboard|ddd)\b",
+    re.IGNORECASE,
+)
+NON_RETAIL_TOPIC_PATTERN = re.compile(
+    r"\b(non[-\s]?retail|ship[-\s]?to|867|outlet|shipment|account|hco)\b",
+    re.IGNORECASE,
+)
+STATUS_TOPIC_PATTERN = re.compile(
+    r"\b(status|active|inactive|retired|merged|duplicate|credit|flag)\b",
+    re.IGNORECASE,
+)
 
 
 @dataclass(slots=True)
@@ -58,6 +106,12 @@ class AssistantResult:
     matched_inquiry_id: str | None
     matched_title: str | None
     confidence: float | None
+
+
+@dataclass(slots=True)
+class ReasoningPreview:
+    summary: str
+    details: list[str]
 
 
 class ChatResponder:
@@ -147,6 +201,221 @@ class ChatResponder:
         if token_count <= 4 and not self._query_has_identifier(query) and not self._is_data_query(query):
             return True
         return any(normalized.startswith(prefix) for prefix in VAGUE_QUERY_PREFIXES) and not self._query_has_identifier(query)
+
+    @staticmethod
+    def _message_preview(value: str, max_length: int = 140) -> str:
+        compact = text_preview(value, length=max_length)
+        compact = re.sub(r"`{3}.*?`{3}", "", compact, flags=re.DOTALL)
+        return compact.strip()
+
+    @staticmethod
+    def _last_message_for_role(
+        conversation_history: list[dict[str, Any]] | None,
+        role: str,
+    ) -> str | None:
+        if not conversation_history:
+            return None
+        for message in reversed(conversation_history):
+            if message.get("role") == role:
+                content = str(message.get("content", "")).strip()
+                if content:
+                    return content
+        return None
+
+    @staticmethod
+    def _extract_provider_label(text: str) -> str | None:
+        match = PROVIDER_NAME_PATTERN.search(text)
+        if match:
+            return f"Dr. {match.group(1).strip()}"
+        generic = PROVIDER_REF_PATTERN.search(text)
+        if generic:
+            return generic.group(0).strip().replace("dr ", "Dr. ").replace("dr.", "Dr.")
+        return None
+
+    def _looks_like_follow_up(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> bool:
+        if not conversation_history:
+            return False
+        lowered = user_message.strip().lower()
+        token_count = len(TOKEN_PATTERN.findall(user_message))
+        if any(lowered.startswith(prefix) for prefix in FOLLOW_UP_PREFIXES):
+            return True
+        if FOLLOW_UP_REFERENCE_PATTERN.search(user_message):
+            return True
+        return token_count <= 8 and bool(LOW_CONTEXT_QUESTION_PATTERN.search(lowered))
+
+    def _rewrite_follow_up_with_context(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> str | None:
+        if not self._looks_like_follow_up(user_message, conversation_history):
+            return None
+
+        previous_user = self._last_message_for_role(conversation_history, "user")
+        previous_assistant = self._last_message_for_role(conversation_history, "assistant")
+
+        if self.azure_client.is_ready and (previous_user or previous_assistant):
+            context_parts: list[str] = []
+            if previous_user:
+                context_parts.append(f"Previous user question:\n{previous_user.strip()}")
+            if previous_assistant:
+                context_parts.append(
+                    f"Previous assistant answer summary:\n{self._message_preview(previous_assistant, max_length=220)}"
+                )
+            context_parts.append(f"Latest follow-up question:\n{user_message.strip()}")
+            rewritten = self.azure_client.chat_completion(
+                messages=[
+                    {
+                        "role": "system",
+                        "content": (
+                            "Rewrite the user's latest follow-up into a standalone analytics or CRM support question. "
+                            "Use the recent conversation only to restore missing context. "
+                            "Preserve IDs, providers, territories, products, DCR wording, and time periods. "
+                            "Do not answer the question. Return only the rewritten question."
+                        ),
+                    },
+                    {"role": "user", "content": "\n\n".join(context_parts)},
+                ],
+                temperature=0.1,
+                max_tokens=140,
+            )
+            if rewritten:
+                return rewritten.strip()
+
+        context_lines: list[str] = []
+        if previous_user:
+            context_lines.append(f"Previous question: {self._message_preview(previous_user)}")
+        if previous_assistant:
+            context_lines.append(f"Previous answer summary: {self._message_preview(previous_assistant)}")
+        if not context_lines:
+            return None
+        return (
+            "Use this recent chat context when answering the latest follow-up.\n"
+            + "\n".join(context_lines)
+            + f"\nLatest follow-up question: {user_message.strip()}"
+        )
+
+    def _describe_query_focus(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> str:
+        provider = self._extract_provider_label(user_message)
+        territory = self._extract_territory_id(user_message)
+        hco_id_match = HCO_CODE_PATTERN.search(user_message)
+        npi_match = PROVIDER_ID_VALUE_PATTERN.search(user_message)
+
+        focus_parts: list[str] = []
+        if provider:
+            focus_parts.append(provider)
+        if territory:
+            focus_parts.append(f"territory {territory}")
+        if hco_id_match:
+            focus_parts.append(f"HCO {hco_id_match.group(0).upper()}")
+        if npi_match:
+            focus_parts.append(f"NPI {npi_match.group(1)}")
+        if DCR_TOPIC_PATTERN.search(user_message):
+            focus_parts.append("the DCR / merge context")
+        if TIME_PERIOD_PATTERN.search(user_message):
+            focus_parts.append("the requested time period")
+
+        if focus_parts:
+            return ", ".join(focus_parts)
+
+        previous_user = self._last_message_for_role(conversation_history, "user")
+        if previous_user and self._looks_like_follow_up(user_message, conversation_history):
+            return f"the earlier thread about {self._message_preview(previous_user, max_length=90)}"
+
+        keyword_tokens = [token for token in TOKEN_PATTERN.findall(user_message) if token.lower() not in STOPWORDS]
+        if keyword_tokens:
+            return " ".join(keyword_tokens[:8])
+        return "the current request"
+
+    def build_reasoning_preview(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> ReasoningPreview:
+        focus = self._describe_query_focus(user_message, conversation_history)
+        is_follow_up = self._looks_like_follow_up(user_message, conversation_history)
+        is_dcr_related = bool(DCR_TOPIC_PATTERN.search(user_message))
+        territory = self._extract_territory_id(user_message)
+        provider = self._extract_provider_label(user_message)
+        hco_id_match = HCO_CODE_PATTERN.search(user_message)
+        npi_match = PROVIDER_ID_VALUE_PATTERN.search(user_message)
+        time_period = TIME_PERIOD_PATTERN.search(user_message)
+
+        details = [f"I am understanding the user query and the key request around {focus}."]
+
+        if is_follow_up:
+            previous_user = self._last_message_for_role(conversation_history, "user")
+            if previous_user:
+                details.append(
+                    "I am applying the recent chat context so this follow-up stays aligned with the earlier thread: "
+                    + self._message_preview(previous_user, max_length=110)
+                    + "."
+                )
+            else:
+                details.append("I am applying recent chat context so the follow-up keeps the same subject and filters.")
+
+        if npi_match:
+            details.append(f"I am preparing SQL to verify NPI {npi_match.group(1)} across provider, alignment, and credit-related records.")
+        elif provider:
+            details.append(f"I am preparing SQL checks around {provider} to verify identity, attribution, and related records.")
+        elif hco_id_match:
+            details.append(f"I am preparing SQL to verify account and affiliation data for {hco_id_match.group(0).upper()}.")
+        elif territory:
+            details.append(f"I am preparing SQL to verify territory mapping and effective dates for {territory}.")
+
+        if is_dcr_related:
+            details.append(
+                "I am checking DCR, merge, duplicate-record, alignment, and credit-impact signals before deciding what the data supports."
+            )
+        if RETAIL_TOPIC_PATTERN.search(user_message):
+            details.append(
+                "I am performing SQL checks for retail status, retail flags, and recent retail volume where that data is relevant."
+            )
+        if NON_RETAIL_TOPIC_PATTERN.search(user_message):
+            details.append(
+                "I am gathering non-retail, ship-to, or account-level signals if they are needed to explain the result."
+            )
+        if STATUS_TOPIC_PATTERN.search(user_message) and not is_dcr_related:
+            details.append("I am checking active or inactive status flags, credit indicators, and any record-level changes tied to this request.")
+        if self._is_data_query(user_message) and not RETAIL_TOPIC_PATTERN.search(user_message):
+            details.append("I am mapping the request to the right filters, metrics, and joins before pulling the final data slice.")
+        if time_period:
+            details.append(f"I am keeping the requested time frame in scope while I compare the returned data with {time_period.group(0).upper()}.")
+
+        details.append("I am gathering the returned rows, validating the context, and preparing the final response.")
+
+        summary = f"Tracing {focus} through the relevant data checks."
+        return ReasoningPreview(summary=summary, details=details)
+
+    def _prepare_query_message(
+        self,
+        user_message: str,
+        conversation_history: list[dict[str, Any]] | None = None,
+    ) -> str:
+        prepared_message = user_message
+        if conversation_history:
+            for index in reversed(range(len(conversation_history))):
+                message = conversation_history[index]
+                if message.get("role") != "assistant":
+                    continue
+                assistant_content = str(message.get("content", "")).lower()
+                if "please provide the" in assistant_content and "before proceeding" in assistant_content:
+                    if index > 0 and conversation_history[index - 1].get("role") == "user":
+                        original_user = str(conversation_history[index - 1].get("content", "")).strip()
+                        if original_user:
+                            prepared_message = f"{original_user}\n{user_message}"
+                    break
+
+        rewritten_follow_up = self._rewrite_follow_up_with_context(prepared_message, conversation_history)
+        return rewritten_follow_up or prepared_message
 
     _DCR_PROMPT_PATTERN = re.compile(r"Would you like me to (?:submit|raise|file|create|log)", re.IGNORECASE)
     _AFFIRMATIVE_PATTERN = re.compile(
@@ -333,10 +602,7 @@ class ChatResponder:
 
     @staticmethod
     def _append_sql_queries(answer: str, sql_queries: list[str]) -> str:
-        if not sql_queries:
-            return answer
-        rendered = "\n\n".join(f"```sql\n{query}\n```" for query in sql_queries)
-        return f"{answer}\n\n**SQL Queries Used:**\n\n{rendered}" if answer else rendered
+        return answer if answer else ""
 
     @staticmethod
     def _is_control_response(response_text: str) -> bool:
@@ -356,19 +622,7 @@ class ChatResponder:
                 dcr = self._build_dcr_confirmation(str(last_assistant.get("content", "")), chat_id or session_id or "default")
                 return AssistantResult(content=dcr, matched_inquiry_id=None, matched_title=None, confidence=None)
 
-        user_message_combined = user_message
-        if conversation_history:
-            for index in reversed(range(len(conversation_history))):
-                message = conversation_history[index]
-                if message.get("role") != "assistant":
-                    continue
-                assistant_content = str(message.get("content", "")).lower()
-                if "please provide the" in assistant_content and "before proceeding" in assistant_content:
-                    if index > 0 and conversation_history[index - 1].get("role") == "user":
-                        original_user = str(conversation_history[index - 1].get("content", "")).strip()
-                        if original_user:
-                            user_message_combined = f"{original_user}\n{user_message}"
-                    break
+        user_message_combined = self._prepare_query_message(user_message, conversation_history)
 
         required = self._required_identifiers(user_message_combined)
         if required:
@@ -399,7 +653,7 @@ class ChatResponder:
 
         answer = self._build_answer_from_sql(user_message, response_text)
         if not answer:
-            fallback = self._append_sql_queries(response_text or "No data found.", sql_queries)
+            fallback = response_text or "No data found."
             return AssistantResult(content=fallback, matched_inquiry_id=None, matched_title=None, confidence=None)
 
         final = self._normalize_structured_output(answer.strip())
@@ -409,5 +663,4 @@ class ChatResponder:
         if dcr_prompt:
             final_text = f"{final_text}\n\n**Recommended Action**\n{dcr_prompt}"
 
-        final_text = self._append_sql_queries(final_text, sql_queries)
         return AssistantResult(content=final_text, matched_inquiry_id=None, matched_title=None, confidence=None)

@@ -1,13 +1,24 @@
-/* eslint-disable react-hooks/set-state-in-effect */
 'use client';
-import React, { useState, useRef, useEffect } from 'react';
+
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import MessageLeft from './MessageLeft';
 import MessageRight from './MessageRight';
-import { queryChat, getOrCreateSessionId } from '@/utils/api/chat';
+import { PRESET_QUESTIONS } from '@/utils/constants';
+import {
+  ApiError,
+  consumePendingPrompt,
+  getChat,
+  getReasoningPreview,
+  listChatMessages,
+  notifyChatHistoryUpdated,
+  sendChatMessage,
+} from '@/utils/api/chat';
+import type { MessageRecord, ReasoningPreview } from '@/utils/types';
 
-interface Message {
+interface ChatMessage {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
 }
@@ -16,14 +27,82 @@ interface ChatSessionProps {
   chatId: string;
 }
 
+function mapMessage(record: MessageRecord): ChatMessage {
+  return {
+    id: record.id,
+    role: record.role,
+    content: record.content,
+  };
+}
+
+function buildFallbackReasoningPreview(
+  userMessage: string,
+  existingMessages: ChatMessage[],
+): ReasoningPreview {
+  const compact = userMessage.trim().replace(/\s+/g, ' ');
+  const recentUserMessage = [...existingMessages]
+    .reverse()
+    .find((message) => message.role === 'user' && message.content.trim());
+  const focus = compact.length > 88 ? `${compact.slice(0, 85).trimEnd()}...` : compact;
+  const npiMatch = compact.match(/\bNPI\s*[:#-]?\s*(\d{10})\b|\b(\d{10})\b/i);
+  const territoryMatch = compact.match(/\b[A-Z]{2,4}-\d{1,3}\b/i);
+  const mentionsRetail = /\bretail\b/i.test(compact);
+  const mentionsStatus = /\bstatus|active|inactive\b/i.test(compact);
+  const mentionsDcr = /\bDCR\b|duplicate|merge|merged|credit\b/i.test(compact);
+
+  const details = [`I am understanding the user query and the key request around ${focus}.`];
+
+  if (recentUserMessage) {
+    details.push(
+      `I am applying the recent chat context so this follow-up stays aligned with the earlier thread: "${recentUserMessage.content.trim().slice(0, 90)}${recentUserMessage.content.trim().length > 90 ? '...' : ''}".`,
+    );
+  }
+
+  if (npiMatch) {
+    details.push(
+      `I am preparing SQL to verify NPI ${npiMatch[1] || npiMatch[2]} across provider, alignment, and activity records.`,
+    );
+  } else if (territoryMatch) {
+    details.push(
+      `I am preparing SQL to verify territory mapping, effective dates, and related activity for ${territoryMatch[0].toUpperCase()}.`,
+    );
+  } else {
+    details.push('I am mapping the request to the right filters, joins, and data path before pulling the relevant rows.');
+  }
+
+  if (mentionsDcr) {
+    details.push('I am checking DCR, merge, duplicate-record, and credit-impact signals tied to this request.');
+  }
+
+  if (mentionsRetail) {
+    details.push('I am performing SQL to find retail status, retail flags, and recent retail-linked activity.');
+  }
+
+  if (mentionsStatus && !mentionsDcr) {
+    details.push('I am checking active or inactive status flags and any recent record-level changes tied to this request.');
+  }
+
+  details.push('I am gathering the returned rows, validating the context, and preparing the final response.');
+
+  return {
+    summary: `Tracing ${focus} through the relevant data checks.`,
+    details,
+  };
+}
+
 const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
   const [inputValue, setInputValue] = useState('');
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [hasInitialized, setHasInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [chatMissing, setChatMissing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [reasoningPreview, setReasoningPreview] = useState<ReasoningPreview | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<ChatMessage[]>([]);
+  const isSendingRef = useRef(false);
+  const reasoningRequestRef = useRef<string | null>(null);
   const router = useRouter();
 
   const scrollToBottom = (behavior: ScrollBehavior = 'smooth') => {
@@ -31,29 +110,127 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
   };
 
   useEffect(() => {
-    if (messages.length > 0) {
-      setTimeout(() => {
-        scrollToBottom();
-      }, 10);
-    }
+    messagesRef.current = messages;
   }, [messages]);
 
   useEffect(() => {
-    if (!hasInitialized && typeof window !== 'undefined') {
-      const storedMessages = sessionStorage.getItem('currentChatMessages');
-      if (storedMessages) {
-        try {
-          const parsedMessages = JSON.parse(storedMessages);
-          if (Array.isArray(parsedMessages)) {
-            setMessages(parsedMessages);
-          }
-        } catch (e) {
-          console.error('Failed to parse messages:', e);
+    if (messages.length > 0 || isLoading) {
+      setTimeout(() => {
+        scrollToBottom(messages.length > 0 ? 'smooth' : 'auto');
+      }, 10);
+    }
+  }, [isLoading, messages]);
+
+  const sendMessage = useCallback(async (rawText: string) => {
+    const text = rawText.trim();
+    if (!text || isSendingRef.current || chatMissing) {
+      return;
+    }
+
+    const optimisticMessage: ChatMessage = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content: text,
+    };
+
+    setMessages((previous) => [...previous, optimisticMessage]);
+    isSendingRef.current = true;
+    setIsLoading(true);
+    setReasoningPreview(buildFallbackReasoningPreview(text, messagesRef.current));
+    reasoningRequestRef.current = optimisticMessage.id;
+
+    void getReasoningPreview(chatId, text)
+      .then((preview) => {
+        if (reasoningRequestRef.current === optimisticMessage.id) {
+          setReasoningPreview(preview);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to load reasoning preview:', error);
+      });
+
+    try {
+      const response = await sendChatMessage(chatId, text);
+
+      setMessages((previous) => {
+        const withoutOptimistic = previous.filter((message) => message.id !== optimisticMessage.id);
+        return [
+          ...withoutOptimistic,
+          mapMessage(response.user_message),
+          mapMessage(response.assistant_message),
+        ];
+      });
+
+      notifyChatHistoryUpdated();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+
+      setMessages((previous) => {
+        const withoutOptimistic = previous.filter((message) => message.id !== optimisticMessage.id);
+        return [
+          ...withoutOptimistic,
+          optimisticMessage,
+          {
+            id: `error-${Date.now()}`,
+            role: 'assistant',
+            content: 'Sorry, I encountered an error processing your request. Please try again.',
+          },
+        ];
+      });
+    } finally {
+      isSendingRef.current = false;
+      reasoningRequestRef.current = null;
+      setReasoningPreview(null);
+      setIsLoading(false);
+    }
+  }, [chatId, chatMissing]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    const hydrateChat = async () => {
+      setIsInitializing(true);
+      setChatMissing(false);
+      setLoadError(null);
+
+      try {
+        await getChat(chatId);
+        const storedMessages = await listChatMessages(chatId);
+
+        if (!isActive) {
+          return;
+        }
+
+        setMessages(storedMessages.map(mapMessage));
+
+        const pendingPrompt = consumePendingPrompt(chatId);
+        if (pendingPrompt && storedMessages.length === 0) {
+          await sendMessage(pendingPrompt);
+        }
+      } catch (error) {
+        if (!isActive) {
+          return;
+        }
+
+        console.error('Failed to hydrate chat:', error);
+        if (error instanceof ApiError && error.status === 404) {
+          setChatMissing(true);
+        } else {
+          setLoadError('Unable to load this chat right now.');
+        }
+      } finally {
+        if (isActive) {
+          setIsInitializing(false);
         }
       }
-      setHasInitialized(true);
-    }
-  }, [hasInitialized]);
+    };
+
+    void hydrateChat();
+
+    return () => {
+      isActive = false;
+    };
+  }, [chatId, sendMessage]);
 
   const resetTextareaHeight = () => {
     const textarea = document.querySelector('textarea');
@@ -64,63 +241,37 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
     }
   };
 
+  const handleQuestionClick = (question: string) => {
+    setInputValue(question);
+    setTimeout(() => {
+      const textarea = document.querySelector('textarea');
+      if (textarea) {
+        textarea.focus();
+        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      }
+    }, 0);
+  };
+
   const handleSubmit = async () => {
     const text = inputValue.trim();
-    if (!text || isLoading) return;
+    if (!text || isLoading || isInitializing || chatMissing) {
+      return;
+    }
 
     setInputValue('');
     resetTextareaHeight();
+    await sendMessage(text);
+  };
 
-    const userMessage: Message = {
-      role: 'user',
-      content: text,
-    };
-
-    // Add user message immediately
-    const updatedMessagesWithUser = [...messages, userMessage];
-    setMessages(updatedMessagesWithUser);
-    sessionStorage.setItem('currentChatMessages', JSON.stringify(updatedMessagesWithUser));
-
-    // Show loading state
-    setIsLoading(true);
-
-    try {
-      const sessionId = getOrCreateSessionId();
-      const answer = await queryChat({
-        question: text,
-        sessionId,
-      });
-
-      const botMessage: Message = {
-        role: 'assistant',
-        content: answer,
-      };
-
-      const updatedMessages = [...updatedMessagesWithUser, botMessage];
-      setMessages(updatedMessages);
-      sessionStorage.setItem('currentChatMessages', JSON.stringify(updatedMessages));
-    } catch (error) {
-      console.error('Failed to get response:', error);
-      
-      const errorMessage: Message = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
-      };
-
-      const updatedMessages = [...updatedMessagesWithUser, errorMessage];
-      setMessages(updatedMessages);
-      sessionStorage.setItem('currentChatMessages', JSON.stringify(updatedMessages));
-    } finally {
-      setIsLoading(false);
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      void handleSubmit();
     }
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSubmit();
-    }
-  };
+  const isInputDisabled = isLoading || isInitializing || chatMissing || Boolean(loadError);
+  const showWelcomeScreen = !isInitializing && !chatMissing && !loadError && messages.length === 0;
 
   return (
     <div
@@ -131,10 +282,8 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
         backgroundPosition: '0 0',
       }}
     >
-      {/* Messages Container */}
       <div className="flex-1 mx-auto w-full px-8 overflow-hidden mb-[30px] mt-[10px] min-h-0">
         <div
-          ref={messagesContainerRef}
           className="h-full overflow-y-auto custom-scrollbar pb-4"
           style={{
             overflowAnchor: 'none',
@@ -142,14 +291,14 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
           }}
         >
           <div className="py-4">
-            {!hasInitialized ? (
+            {isInitializing ? (
               <div className="flex justify-center items-center py-12">
-                <div className="text-gray-500">Loading...</div>
+                <div className="text-gray-500">Loading conversation...</div>
               </div>
-            ) : messages.length === 0 ? (
+            ) : chatMissing ? (
               <div className="text-center text-gray-500 mt-20">
-                <p className="text-lg font-medium">Failed to fetch chat</p>
-                <p className="text-sm mt-2">Please try again later</p>
+                <p className="text-lg font-medium">Chat not found</p>
+                <p className="text-sm mt-2">This conversation no longer exists in local history.</p>
                 <button
                   className="p-2 text-white bg-primary mt-3 rounded-md cursor-pointer font-semibold text-sm"
                   onClick={() => router.push('/')}
@@ -157,15 +306,117 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
                   Go to Home
                 </button>
               </div>
+            ) : loadError ? (
+              <div className="text-center text-gray-500 mt-20">
+                <p className="text-lg font-medium">Unable to load chat</p>
+                <p className="text-sm mt-2">{loadError}</p>
+                <button
+                  className="p-2 text-white bg-primary mt-3 rounded-md cursor-pointer font-semibold text-sm"
+                  onClick={() => router.push('/')}
+                >
+                  Back to Home
+                </button>
+              </div>
+            ) : showWelcomeScreen ? (
+              <div className="flex flex-col items-center justify-center gap-y-[20px] px-8 pt-[250px] pb-6 min-h-[60vh]">
+                <div className="text-left max-w-4xl w-full fade-in delay-1">
+                  <h1
+                    className="text-[50px] font-semibold bg-clip-text text-transparent"
+                    style={{
+                      background: 'linear-gradient(180deg, #8a162c 0%, #c5203f 50%, #e63946 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                      backgroundClip: 'text',
+                    }}
+                  >
+                    Hi User
+                  </h1>
+                  <p className="text-black text-[18px] mt-2 font-normal leading-6">
+                    I am your dedicated field assistant, here to empower you with intelligent insights.
+                  </p>
+
+                  <div className="bg-white rounded-[12px] shadow-[0px_0px_12px_0px_#0000001A] max-w-4xl mx-auto mt-[20px] mb-4 fade-in delay-2">
+                    <div className="pl-[12px] pr-[14px] py-[12px]">
+                      <div className="flex items-start pl-1 text-sm justify-between gap-2">
+                        <Image
+                          src="/Images/Star.svg"
+                          alt="Star"
+                          width={20}
+                          height={20}
+                          className="flex-shrink-0 "
+                        />
+                        <textarea
+                          value={inputValue}
+                          onChange={(event) => setInputValue(event.target.value)}
+                          onKeyDown={handleKeyDown}
+                          disabled={isInputDisabled}
+                          placeholder="What would you like to know?"
+                          rows={1}
+                          className="flex-1 text-black custom-scrollbar font-normal text-[16px] leading-[22px] bg-transparent border-none outline-none resize-none overflow-hidden min-h-[22px] max-h-[88px]"
+                          style={{
+                            height: 'auto',
+                            minHeight: '22px',
+                            maxHeight: '88px',
+                          }}
+                          onInput={(event) => {
+                            const target = event.target as HTMLTextAreaElement;
+                            target.style.height = 'auto';
+                            target.style.height = `${Math.min(target.scrollHeight, 88)}px`;
+                            target.style.overflowY = target.scrollHeight > 88 ? 'scroll' : 'hidden';
+                          }}
+                        />
+                        <button
+                          onClick={() => void handleSubmit()}
+                          className="flex cursor-pointer items-center justify-end rounded-full transition-colors duration-200 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                          disabled={!inputValue.trim() || isInputDisabled}
+                        >
+                          <Image src="/Images/SendIcon.svg" alt="Submit" width={22} height={22} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] max-w-4xl mx-auto fade-in delay-3">
+                    {PRESET_QUESTIONS.map((question, index) => (
+                      <button
+                        key={index}
+                        onClick={() => handleQuestionClick(question)}
+                        className="group cursor-pointer text-left p-3 bg-tertiary rounded-lg hover:bg-primary2 transition-all duration-200 leading-[16px] flex items-center"
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-black group-hover:text-white text-[14px] leading-[18px] pr-2 font-normal">
+                            {question}
+                          </span>
+                          <Image
+                            src="/Images/SlantedArrow.svg"
+                            alt="Arrow"
+                            width={10}
+                            height={10}
+                            className="group-hover:brightness-0 group-hover:invert"
+                          />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
             ) : (
               <>
-                {messages.map((message, index) => {
-                  if (message.role === 'user') {
-                    return <MessageRight key={index} content={message.content} />;
-                  }
-                  return <MessageLeft key={index} content={message.content} isLoading={false} />;
-                })}
-                {isLoading && <MessageLeft content="" isLoading={true} />}
+                {messages.map((message) =>
+                  message.role === 'user' ? (
+                    <MessageRight key={message.id} content={message.content} />
+                  ) : (
+                    <MessageLeft key={message.id} content={message.content} isLoading={false} />
+                  )
+                )}
+                {isLoading && (
+                  <MessageLeft
+                    key={reasoningPreview ? `${reasoningPreview.summary}::${reasoningPreview.details.join('||')}` : 'reasoning-preview'}
+                    content=""
+                    isLoading={true}
+                    reasoningPreview={reasoningPreview}
+                  />
+                )}
                 <div ref={messagesEndRef} />
               </>
             )}
@@ -173,49 +424,50 @@ const ChatSession: React.FC<ChatSessionProps> = ({ chatId }) => {
         </div>
       </div>
 
-      {/* Input Container - Fixed to bottom */}
-      <div className="flex-shrink-0 mx-auto w-full px-8 pb-8">
-        <div className="bg-white rounded-[12px] shadow-[0px_0px_12px_0px_#0000001A]">
-          <div className="pl-[12px] pr-[14px] py-[12px]">
-            <div className="flex items-start pl-1 text-sm justify-between gap-2">
-              <Image
-                src="/Images/Star.svg"
-                alt="Star"
-                width={20}
-                height={20}
-                className="flex-shrink-0 "
-              />
-              <textarea
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                onKeyDown={handleKeyDown}
-                disabled={isLoading}
-                placeholder="What would you like to know?"
-                rows={1}
-                className="flex-1 text-black custom-scrollbar font-normal text-[14px] leading-[22px] bg-transparent border-none outline-none resize-none overflow-hidden min-h-[22px] max-h-[88px]"
-                style={{
-                  height: 'auto',
-                  minHeight: '22px',
-                  maxHeight: '88px',
-                }}
-                onInput={(e) => {
-                  const target = e.target as HTMLTextAreaElement;
-                  target.style.height = 'auto';
-                  target.style.height = `${Math.min(target.scrollHeight, 88)}px`;
-                  target.style.overflowY = target.scrollHeight > 88 ? 'scroll' : 'hidden';
-                }}
-              />
-              <button
-                onClick={handleSubmit}
-                className="flex mt-0.5 cursor-pointer items-center justify-end rounded-full transition-colors duration-200 flex-shrink-0"
-                disabled={!inputValue.trim() || isLoading}
-              >
-                <Image src="/Images/SendIcon.svg" alt="Submit" width={18} height={22} />
-              </button>
+      {!showWelcomeScreen && (
+        <div className="flex-shrink-0 mx-auto w-full px-8 pb-8">
+          <div className="bg-white rounded-[12px] shadow-[0px_0px_12px_0px_#0000001A]">
+            <div className="pl-[12px] pr-[14px] py-[12px]">
+              <div className="flex items-start pl-1 text-sm justify-between gap-2">
+                <Image
+                  src="/Images/Star.svg"
+                  alt="Star"
+                  width={20}
+                  height={20}
+                  className="flex-shrink-0 "
+                />
+                <textarea
+                  value={inputValue}
+                  onChange={(event) => setInputValue(event.target.value)}
+                  onKeyDown={handleKeyDown}
+                  disabled={isInputDisabled}
+                  placeholder="What would you like to know?"
+                  rows={1}
+                  className="flex-1 text-black custom-scrollbar font-normal text-[14px] leading-[22px] bg-transparent border-none outline-none resize-none overflow-hidden min-h-[22px] max-h-[88px]"
+                  style={{
+                    height: 'auto',
+                    minHeight: '22px',
+                    maxHeight: '88px',
+                  }}
+                  onInput={(event) => {
+                    const target = event.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${Math.min(target.scrollHeight, 88)}px`;
+                    target.style.overflowY = target.scrollHeight > 88 ? 'scroll' : 'hidden';
+                  }}
+                />
+                <button
+                  onClick={() => void handleSubmit()}
+                  className="flex mt-0.5 cursor-pointer items-center justify-end rounded-full transition-colors duration-200 flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={!inputValue.trim() || isInputDisabled}
+                >
+                  <Image src="/Images/SendIcon.svg" alt="Submit" width={18} height={22} />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
