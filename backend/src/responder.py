@@ -663,7 +663,9 @@ class ChatResponder:
             "Use bullet points for list items. "
             "Do not invent facts. Do not apologize. Professional tone. "
             "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
-            "PRIORITY RULE: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data."
+            "PRIORITY RULE 1: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data. "
+            "PRIORITY RULE 2: DNC / Contact Resolution - A 'Y' in Digital_DNC_Flag or an email/digital opt-out restricts email/digital contact ONLY; it does NOT block in-person field visits. "
+            "HCPs with a digital DNC flag remain fully creditable for sales and incentive compensation (IC)."
         )
         user_prompt = (
             f"User question:\n{user_message}\n\n"
