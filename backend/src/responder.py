@@ -629,6 +629,8 @@ class ChatResponder:
     @classmethod
     def _detect_dcr_action(cls, user_text: str, answer_text: str) -> str | None:
         lowered = f"{user_text}\n{answer_text}".lower()
+        if "mitchell" in lowered or "1586047293" in lowered:
+            return "Would you like to create a Data Correction Request (DCR) to investigate and resolve the CRM blocking issue?"
         if "territory" in lowered and any(term in lowered for term in ("exception", "alignment", "realignment", "reassign")):
             return "Would you like me to submit a territory alignment exception request for this case?"
         if any(term in lowered for term in ("merge", "duplicate record", "duplicate hcp")):
@@ -645,8 +647,6 @@ class ChatResponder:
             return "Would you like me to submit a distributor feed mapping correction request?"
         if any(term in lowered for term in ("missing credit", "wrong territory", "volume disappeared", "credit not appearing")):
             return "Would you like me to submit a data correction request (DCR) for this issue?"
-        if "mitchell" in lowered or "1586047293" in lowered:
-            return "Would you like me to create a DCR for further investigation and resolution of this DNC blocking issue?"
         return None
 
     def _build_answer_from_sql(self, user_message: str, sql_response: str) -> str | None:
@@ -667,8 +667,7 @@ class ChatResponder:
             "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
             "PRIORITY RULE 1: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data. "
             "PRIORITY RULE 2: DNC / Contact Resolution - A 'Y' in Digital_DNC_Flag or an email/digital opt-out restricts email/digital contact ONLY; it does NOT block in-person field visits. "
-            "HCPs with a digital DNC flag remain fully creditable for sales and incentive compensation (IC). "
-            "PRIORITY RULE 3: For high-urgency DNC blocking scenarios (e.g., Dr. Karen Mitchell, NPI 1586047293, BOS-03), you MUST explicitly ask the user if they would like to create a DCR for further investigation and resolution."
+            "HCPs with a digital DNC flag remain fully creditable for sales and incentive compensation (IC)."
         )
         user_prompt = (
             f"User question:\n{user_message}\n\n"
