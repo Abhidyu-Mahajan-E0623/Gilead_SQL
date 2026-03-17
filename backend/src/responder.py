@@ -578,6 +578,7 @@ class ChatResponder:
 
     _SECTION_HEADERS = {
         "key findings",
+        "detailed analysis",
         "root cause",
         "root cause / issue analysis",
         "issue analysis",
@@ -658,7 +659,7 @@ class ChatResponder:
             "Your goal is to 'connect the dots' for the user: explain *why* something happened (e.g., 'A merge occurred in OneKey, retiring the old record and moving volume to a new territory'). "
             "Use the exact terminology from the guide (Merge, Move, Retail vs Non-Retail, Reporting Lag). "
             "Provide a direct response without a 'Summary' heading. "
-            "Use exactly these sections: Key Findings, Root Cause / Issue Analysis. "
+            "Use exactly these sections: Key Findings, Detailed Analysis. "
             "Use bullet points for list items. "
             "Do not invent facts. Do not apologize. Professional tone. "
             "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted."
@@ -669,9 +670,9 @@ class ChatResponder:
             "OUTPUT FORMAT:\n"
             "1. Start with a direct 1-2 sentence paragraph answering the question.\n"
             "2. Add a 'Key Findings' section with bullet points.\n"
-            "3. Add a 'Root Cause / Issue Analysis' section with bullet points.\n"
+            "3. Add a 'Detailed Analysis' section with bullet points.\n"
             "4. Do not include Business Impact or Recommended Action sections.\n"
-            "5. If evidence is incomplete, say that clearly in Root Cause / Issue Analysis.\n"
+            "5. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
         )
         return self.azure_client.chat_completion(
             messages=[
@@ -755,6 +756,6 @@ class ChatResponder:
 
         dcr_prompt = self._detect_dcr_action(user_message_combined, final_text)
         if dcr_prompt:
-            final_text = f"{final_text}\n\n**Recommended Action**\n{dcr_prompt}"
+            final_text = f"{final_text}\n\n{dcr_prompt}"
 
         return AssistantResult(content=final_text, matched_inquiry_id=None, matched_title=None, confidence=None)
