@@ -91,7 +91,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 #### `iqvia_onekey.Retail`
 
-- `Y`: retail-oriented; prescriber-level Xponent may be relevant
+- `Y`: retail-oriented; use prescriber-level Xponent. **CRITICAL: DO NOT use iqvia_ddd data for Retail records.**
 - `N`: non-retail; account-level sources (iqvia_DDD) may be more relevant
 
 #### `iqvia_onekey.Digital_DNC_Flag`
@@ -226,7 +226,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 **Key**: `HCO_ID` joins to `iqvia_onekey.HCO_ID`.
 
-**Query caution**: HCO grain, not HCP grain. Do not attribute these units to individual physicians.
+**Query caution**: HCO grain, not HCP grain. Do not attribute these units to individual physicians. **CRITICAL: If iqvia_onekey.Retail = 'Y', DO NOT use iqvia_ddd for volume; only use xponent.**
 
 ---
 
@@ -503,6 +503,7 @@ Separate these ideas in answers:
 - Prefer 2-4 focused queries for root-cause questions.
 - Resolve names and addresses to IDs before querying fact tables.
 - Deduplicate `iqvia_onekey` by NPI when joining to xponent (filter `Status = 'Active'` or use specific `HCP_ID`).
+- **FOR RETAIL (Y): DO NOT use iqvia_ddd data. Use xponent.**
 - `Digital_DNC_Flag` and `Inperson_DNC_Flag` are separate — digital opt-out does NOT block in-person (per BR-001).
 - `xponent` (HCP level) uses `Month` (e.g., `Nov`, `Jan`).
 - `iqvia_ddd` (HCO level) uses `Period` (e.g., `Nov`, `Jan`).
