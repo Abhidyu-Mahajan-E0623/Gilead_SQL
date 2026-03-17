@@ -662,7 +662,8 @@ class ChatResponder:
             "Use exactly these sections: Key Findings, Detailed Analysis. "
             "Use bullet points for list items. "
             "Do not invent facts. Do not apologize. Professional tone. "
-            "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted."
+            "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
+            "PRIORITY RULE: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data."
         )
         user_prompt = (
             f"User question:\n{user_message}\n\n"

@@ -524,7 +524,8 @@ Generate accurate DuckDB SQL queries following these guidelines.
             return {
                 "analysis": (
                     "Resolve the account to a stable HCO_ID, then inspect affiliated providers, "
-                    "non-retail volume, and any retail DDD activity tied to affiliated NPIs."
+                    "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
+                    "PRIORITY RULE: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data."
                 ),
                 "queries": [
                     {
@@ -561,7 +562,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
                     },
                     {
                         "name": "retail_volume_for_affiliates",
-                        "purpose": "Check whether affiliated providers have retail DDD activity for the same product.",
+                        "purpose": "Check whether affiliated providers have Xponent prescriber-level volume for the same product.",
                         "sql": (
                             "SELECT d.NPI, d.HCP_ID, o.HCP_Name, o.HCO_ID, o.HCO_Name, d.Product, d.Month, d.Units, d.Territory "
                             "FROM iqvia_onekey o "
