@@ -31,7 +31,7 @@ Use this guide as instructions, not as an answer key. Do not assume a specific p
 | `DCR` | `dcr` | 2 | Data correction / governance event log |
 | `IQVIA-DDD` | `iqvia_ddd` | 4 | Non-retail HCO-level volume |
 | `Alignment` | `alignment` | 8 | ZIP → territory → region mapping |
-| `Xponent` | `xponent` | 5 | Prescriber-level dispensed data |
+| `Xponent` | `xponent` | 5 | Prescriber-level dispensed data (Retail) |
 | `867_Shipment` | `867_shipment` | 5 | Shipment records by ship-to location |
 | `CRM` | `crm` | 1 | CRM call activity and DNC flag |
 | `Marketing Opt` | `marketing_opt` | 1 | Marketing opt-out events |
@@ -91,8 +91,8 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 #### `iqvia_onekey.Retail`
 
-- `Y`: retail-oriented; prescriber-level DDD may be relevant
-- `N`: non-retail; account-level sources may be more relevant
+- `Y`: retail-oriented; prescriber-level Xponent may be relevant
+- `N`: non-retail; account-level sources (iqvia_DDD) may be more relevant
 
 #### `iqvia_onekey.Digital_DNC_Flag`
 
@@ -110,15 +110,15 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 - `HIV Medicine`: dedicated HIV medicine specialty
 - `Internal Medicine`: primary care / internal medicine
 
-#### `iqvia_ddd.Month`
+#### `xponent.Month`
 
 - Short month text format (e.g. `Nov`, `Jan`, `Feb`, `Mar`) — not `YYYY-MM`
 
-#### `iqvia_ddd.Territory`
+#### `xponent.Territory`
 
-- Territory where the prescribing activity was recorded (e.g. `DAL-11`, `DAL-19`, `SFO-09`, `BOS-03`)
+- Territory where the Account activity was recorded (e.g. `DAL-11`, `DAL-19`, `SFO-09`, `BOS-03`)
 
-#### `exponent.Period`
+#### `iqvia_ddd.Period`
 
 - Aggregation period label (e.g. `Last 90 Days`) — not a single month
 
@@ -203,7 +203,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 ---
 
-### `iqvia_ddd`
+### `xponent`
 
 **Grain**: One row per NPI + HCP_ID + Product + Month.
 
@@ -211,9 +211,22 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 **Key**: `HCP_ID` joins to `iqvia_onekey.HCP_ID`. `NPI` joins to `iqvia_onekey.NPI`.
 
-**Best use**: Provider-level prescribing volume. Check if prescribing continued across merges/territory changes.
+**Best use**: Provider-level prescribing volume (Retail). Check if prescribing continued across merges/territory changes.
 
-**Note**: `Month` is short text (e.g. `Nov`, `Jan`), not `YYYY-MM`. `Territory` is included directly in DDD, so you can see territory attribution per row.
+**Note**: `Month` is short text (e.g. `Nov`, `Jan`), not `YYYY-MM`. `Territory` is included directly in Xponent, so you can see territory attribution per row.
+
+
+---
+
+### `iqvia_ddd`
+
+**Grain**: One row per HCO + Product + Period.
+
+**Columns**: `HCO_ID`, `HCO_Name`, `Product`, `Period`, `Units`, `Territory`
+
+**Key**: `HCO_ID` joins to `iqvia_onekey.HCO_ID`.
+
+**Query caution**: HCO grain, not HCP grain. Do not attribute these units to individual physicians.
 
 ---
 
@@ -225,19 +238,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 **Key**: `ZIP` joins to `iqvia_onekey.HCP_ZIP` or `867_shipment.ZIP`.
 
-**Important**: This table maps **ZIPs to territories**, not HCPs to territories. To find an HCP's territory, join through their ZIP or use `iqvia_ddd.Territory`.
-
----
-
-### `xponent`
-
-**Grain**: One row per HCO + Product + Period.
-
-**Columns**: `HCO_ID`, `HCO_Name`, `Product`, `Period`, `Units`, `Territory`
-
-**Key**: `HCO_ID` joins to `iqvia_onekey.HCO_ID`.
-
-**Query caution**: HCO grain, not HCP grain. Do not attribute these units to individual physicians.
+**Important**: This table maps **ZIPs to territories**, not HCPs to territories. To find an HCP's territory, join through their ZIP or use `xponent.Territory`. To find an HCO's territory, join through `iqvia_ddd.Territory`.
 
 ---
 
@@ -309,11 +310,11 @@ LIMIT 100;
 iqvia_onekey.HCP_ZIP = alignment.ZIP
 ```
 
-### Provider to territory (via DDD — more direct)
+### Provider to territory (via xponent — more direct)
 
 ```sql
-iqvia_onekey.HCP_ID = iqvia_ddd.HCP_ID
--- Territory is directly in iqvia_ddd.Territory
+iqvia_onekey.HCP_ID = xponent.HCP_ID
+-- Territory is directly in xponent.Territory
 ```
 
 ### Provider to DCR events
@@ -343,7 +344,7 @@ iqvia_onekey.Specialty = sales_credit_flag.Specialty
 ### HCO to non-retail volume
 
 ```sql
-iqvia_onekey.HCO_ID = exponent.HCO_ID
+iqvia_onekey.HCO_ID = iqvia_ddd.HCO_ID
 ```
 
 ### Ship-to ZIP to territory
@@ -373,18 +374,18 @@ iqvia_onekey.HCO_ID = exponent.HCO_ID
 
 1. Start with `dcr` for Merge events
 2. Check `iqvia_onekey` for retired vs active records sharing the same NPI
-3. Check `iqvia_ddd` for prescribing continuity across the merge
-4. Check territory changes in DDD rows before and after the merge
+3. Check `xponent` for prescribing continuity across the merge
+4. Check territory changes in xponent rows before and after the merge
 
 ### Territory mapping
 
 1. Use `alignment` to map ZIP → Territory → Region → Area
-2. Use `iqvia_ddd.Territory` for prescribing-level territory attribution
-3. Use `exponent.Territory` for HCO-level territory
+2. Use `xponent.Territory` for prescribing-level territory attribution
+3. Use `iqvia_ddd.Territory` for HCO-level territory
 
 ## 8. Dangerous Joins And Failure Modes
 
-### Failure mode 1: joining DDD to raw `iqvia_onekey` by NPI without deduping
+### Failure mode 1: joining xponent to raw `iqvia_onekey` by NPI without deduping
 
 Providers with merged records share the same NPI. Filter to `Status = 'Active'` or select by specific `HCP_ID`.
 
@@ -398,7 +399,7 @@ The new data separates `Digital_DNC_Flag` and `Inperson_DNC_Flag`. Per business 
 
 ### Failure mode 4: treating shipments as prescriptions
 
-`867_shipment.Units` is shipment volume, not prescriber-level scripts. Use DDD for prescriptions.
+`867_shipment.Units` is shipment volume, not prescriber-level scripts. Use xponent for prescriptions.
 
 ### Failure mode 5: quoting table names starting with a digit
 
@@ -421,13 +422,13 @@ WHERE o.HCP_ID = '{{HCP_ID}}'
 LIMIT 100;
 ```
 
-### Pattern B: DDD prescribing with territory
+### Pattern B: Xponent prescribing with territory
 
 ```sql
 SELECT
   d.NPI, d.HCP_ID, d.Product, d.Month, d.Units, d.Territory,
   o.HCP_Name, o.Specialty, o.Status
-FROM iqvia_ddd d
+FROM xponent d
 JOIN iqvia_onekey o ON d.HCP_ID = o.HCP_ID
 WHERE d.NPI = {{NPI}}
 LIMIT 100;
@@ -501,7 +502,7 @@ Separate these ideas in answers:
 - Quote `"867_shipment"` and `"business_rules"` if needed (though `business_rules` is safe in DuckDB).
 - Prefer 2-4 focused queries for root-cause questions.
 - Resolve names and addresses to IDs before querying fact tables.
-- Deduplicate `iqvia_onekey` by NPI when joining to DDD (filter `Status = 'Active'` or use specific `HCP_ID`).
+- Deduplicate `iqvia_onekey` by NPI when joining to xponent (filter `Status = 'Active'` or use specific `HCP_ID`).
 - `Digital_DNC_Flag` and `Inperson_DNC_Flag` are separate — digital opt-out does NOT block in-person (per BR-001).
 - `xponent` (HCP level) uses `Month` (e.g., `Nov`, `Jan`).
 - `iqvia_ddd` (HCO level) uses `Period` (e.g., `Nov`, `Jan`).
@@ -525,7 +526,7 @@ A volume drop for a specific provider (HCP) is usually caused by a change in mas
 4.  **Confirm Governance**: Search `dcr` for any `Change_Type` related to 'Merge', 'Realignment', or 'Address Update' for this NPI/ID in the last 30 days.
 5.  **Verify Fact Continuity**: Pull `xponent` for the NPI (old and new IDs). If volume exists on the new ID but in a different territory, the "disappearance" is an attribution change.
 
-### SOP 2: Shipment vs. Dispense (867 vs. DDD)
+### SOP 2: Shipment vs. Dispense (867 vs. xponent)
 
 Reps often confuse "Shipment" (sell-in) with "Dispense" (sell-out).
 
@@ -533,7 +534,7 @@ Reps often confuse "Shipment" (sell-in) with "Dispense" (sell-out).
 2.  **Verify Ship-To Mapping**: Cross-reference `Ship_To_ID` (or `ZIP`) against the `alignment` or 867 mapping context to ensure it belongs to the rep's territory.
 3.  **Identify Prescriber Context**: Use `iqvia_onekey` to find HCPs affiliated with the `HCO_ID` or address of the ship-to location.
 4.  **Check Credit Eligibility**: Confirm the `Specialty` and `Status` of affiliated HCPs. Only creditable specialties (e.g., ID, HIV, Internal Medicine) generate IC credit.
-5.  **Explain the Lag**: DDD dispensed data has a typical **4–6 week reporting lag** from the date of shipment/dispense. If the shipment is recent, the dispense will not appear yet.
+5.  **Explain the Lag**: xponent (retail) dispensed data has a typical **4–6 week reporting lag** from the date of shipment/dispense. If the shipment is recent, the dispense will not appear yet.
 
 ### SOP 3: Account Grain (Retail vs. Non-Retail)
 
