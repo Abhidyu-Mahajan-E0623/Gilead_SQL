@@ -8,9 +8,14 @@
       "grain": "inferred",
       "columns": [
         {
+          "name": "Ship_To_ID",
+          "description": "Column Ship_To_ID",
+          "type": "VARCHAR"
+        },
+        {
           "name": "Shipment_Date",
           "description": "Column Shipment_Date",
-          "type": "TIMESTAMP_NS"
+          "type": "TIMESTAMP"
         },
         {
           "name": "Product",
@@ -28,8 +33,8 @@
           "type": "VARCHAR"
         },
         {
-          "name": "Ship_To_ID",
-          "description": "Column Ship_To_ID",
+          "name": "HCO_ID",
+          "description": "Column HCO_ID",
           "type": "VARCHAR"
         },
         {
@@ -124,7 +129,7 @@
         {
           "name": "Last_Call_Date",
           "description": "Column Last_Call_Date",
-          "type": "TIMESTAMP_NS"
+          "type": "TIMESTAMP"
         },
         {
           "name": "Call_Frequency",
@@ -147,7 +152,7 @@
         {
           "name": "Change_Date",
           "description": "Column Change_Date",
-          "type": "TIMESTAMP_NS"
+          "type": "TIMESTAMP"
         },
         {
           "name": "Entity",
@@ -173,8 +178,8 @@
       "joins": []
     },
     {
-      "table_name": "exponent",
-      "business_purpose": "Auto-discovered table exponent",
+      "table_name": "iqvia_ddd",
+      "business_purpose": "Auto-discovered table iqvia_ddd",
       "grain": "inferred",
       "columns": [
         {
@@ -195,44 +200,6 @@
         {
           "name": "Period",
           "description": "Column Period",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "Units",
-          "description": "Column Units",
-          "type": "INTEGER"
-        },
-        {
-          "name": "Territory",
-          "description": "Column Territory",
-          "type": "VARCHAR"
-        }
-      ],
-      "joins": []
-    },
-    {
-      "table_name": "iqvia_ddd",
-      "business_purpose": "Auto-discovered table iqvia_ddd",
-      "grain": "inferred",
-      "columns": [
-        {
-          "name": "NPI",
-          "description": "Column NPI",
-          "type": "INTEGER"
-        },
-        {
-          "name": "HCP_ID",
-          "description": "Column HCP_ID",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "Product",
-          "description": "Column Product",
-          "type": "VARCHAR"
-        },
-        {
-          "name": "Month",
-          "description": "Column Month",
           "type": "VARCHAR"
         },
         {
@@ -272,6 +239,11 @@
           "name": "Master_ID",
           "description": "Column Master_ID",
           "type": "VARCHAR"
+        },
+        {
+          "name": "Specialty_Code",
+          "description": "Column Specialty_Code",
+          "type": "INTEGER"
         },
         {
           "name": "Specialty",
@@ -352,6 +324,16 @@
           "name": "Inperson_DNC_Flag",
           "description": "Column Inperson_DNC_Flag",
           "type": "VARCHAR"
+        },
+        {
+          "name": "Creditable",
+          "description": "Column Creditable",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "IC_Credit",
+          "description": "Column IC_Credit",
+          "type": "VARCHAR"
         }
       ],
       "joins": []
@@ -364,7 +346,7 @@
         {
           "name": "Opt_Out_Date",
           "description": "Column Opt_Out_Date",
-          "type": "TIMESTAMP_NS"
+          "type": "TIMESTAMP"
         },
         {
           "name": "HCP_ID",
@@ -395,28 +377,38 @@
       "joins": []
     },
     {
-      "table_name": "sales_credit_flag",
-      "business_purpose": "Auto-discovered table sales_credit_flag",
+      "table_name": "xponent",
+      "business_purpose": "Auto-discovered table xponent",
       "grain": "inferred",
       "columns": [
         {
-          "name": "Specialty_Code",
-          "description": "Column Specialty_Code",
+          "name": "NPI",
+          "description": "Column NPI",
           "type": "INTEGER"
         },
         {
-          "name": "Specialty",
-          "description": "Column Specialty",
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
           "type": "VARCHAR"
         },
         {
-          "name": "Creditable",
-          "description": "Column Creditable",
+          "name": "Product",
+          "description": "Column Product",
           "type": "VARCHAR"
         },
         {
-          "name": "IC_Credit",
-          "description": "Column IC_Credit",
+          "name": "Month",
+          "description": "Column Month",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Units",
+          "description": "Column Units",
+          "type": "INTEGER"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
           "type": "VARCHAR"
         }
       ],
@@ -424,12 +416,6 @@
     }
   ],
   "canonical_relationships": [
-    {
-      "from": "867_shipment.Product",
-      "to": "iqvia_ddd.Product",
-      "confidence": 1.0,
-      "type": "value_overlap"
-    },
     {
       "from": "alignment.Territory",
       "to": "iqvia_ddd.Territory",
@@ -449,8 +435,8 @@
       "type": "value_overlap"
     },
     {
-      "from": "iqvia_onekey.Specialty",
-      "to": "sales_credit_flag.Specialty",
+      "from": "iqvia_ddd.Product",
+      "to": "xponent.Product",
       "confidence": 1.0,
       "type": "value_overlap"
     }

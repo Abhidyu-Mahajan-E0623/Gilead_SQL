@@ -17,10 +17,10 @@ LOGGER = logging.getLogger(__name__)
 
 IDENTIFIER_PATTERNS = {
     "NPI": re.compile(r"\bNPI\b\s*[:#-]?\s*(\d{10})", re.IGNORECASE),
-    "HCO ID": re.compile(r"\bHCO\s+ID\b\s*[:#-]?\s*([A-Z0-9-]+)", re.IGNORECASE),
+    "HCO ID": re.compile(r"\bHCO\s+ID\b\s*[:#-]?\s*([A-Z0-9_-]+)", re.IGNORECASE),
 }
-HCO_CODE_PATTERN = re.compile(r"\bHCO-[A-Z0-9-]+\b", re.IGNORECASE)
-HCP_CODE_PATTERN = re.compile(r"\bHCP-[A-Z0-9-]+\b", re.IGNORECASE)
+HCO_CODE_PATTERN = re.compile(r"\bHCO[-_][A-Z0-9_-]+\b", re.IGNORECASE)
+HCP_CODE_PATTERN = re.compile(r"\bHCP[-_][A-Z0-9_-]+\b", re.IGNORECASE)
 TERRITORY_ID_PATTERN = re.compile(r"\b(?:[A-Z]{2,5}-\d{2,4}|[A-Z]{1,3}\d{4,8})\b", re.IGNORECASE)
 TERRITORY_CONTEXT_PATTERN = re.compile(
     r"\b(?:territory(?:\s+id)?(?:\s+code)?)\b[^A-Z0-9]{0,6}([A-Z]{1,5}-?\d{2,8})\b",
@@ -30,6 +30,9 @@ NON_TERRITORY_PREFIXES = {"DCR", "HCO", "HCP", "NPI", "SP", "ZIP", "IC"}
 PROVIDER_ID_VALUE_PATTERN = re.compile(r"\b(\d{10})\b")
 PROVIDER_REF_PATTERN = re.compile(r"\bdr\.?\s+[A-Za-z'`-]+\b", re.IGNORECASE)
 PROVIDER_NAME_PATTERN = re.compile(r"\bDr\.?\s+([A-Z][A-Za-z'`-]+(?:\s+[A-Z][A-Za-z'`-]+)+)")
+ACCOUNT_NAME_PATTERN = re.compile(
+    r"\b(?:[A-Z][a-z&']+(?:\s+[A-Z][a-z&']+){0,3}\s+(?:Center|Hospital|Clinic|Pharmacy|Account|Facility|Practice|Site|Institute|University|Care|Medical|Group))\b"
+)
 VAGUE_QUERY_PREFIXES = (
     "what happened",
     "whats happening",
@@ -47,7 +50,7 @@ DATA_QUERY_KEYWORDS = re.compile(
     re.IGNORECASE,
 )
 AGGREGATE_QUERY_HINTS = re.compile(
-    r"\b(top|bottom|all|every|each|list|show|count|how\s+many|rank|compare|across)\b",
+    r"\b(top|bottom|all|every|each|count|how\s+many|rank|compare|across|trend|growth|summarize|summary|breakdown|distribution)\b",
     re.IGNORECASE,
 )
 FOLLOW_UP_PREFIXES = (
@@ -177,6 +180,15 @@ class ChatResponder:
         return False
 
     @staticmethod
+    def _query_mentions_specific_account(query: str) -> bool:
+        if ACCOUNT_NAME_PATTERN.search(query):
+            return True
+        lowered = query.lower()
+        if any(word in lowered for word in ("account", "hco", "facility", "hospital", "clinic", "pharmacy", "center", "practice", "site")):
+            return not bool(AGGREGATE_QUERY_HINTS.search(query))
+        return False
+
+    @staticmethod
     def _format_identifier_follow_up(required: list[str]) -> str:
         if len(required) == 1:
             noun = "records" if required[0].endswith("s") else "record"
@@ -193,7 +205,7 @@ class ChatResponder:
             IDENTIFIER_PATTERNS["NPI"].search(query) or HCP_CODE_PATTERN.search(query)
         ):
             required.append("NPI ID")
-        if re.search(r"\bHCO\s+ID\b", query, re.IGNORECASE) and not (
+        if self._query_mentions_specific_account(query) and not (
             IDENTIFIER_PATTERNS["HCO ID"].search(query) or HCO_CODE_PATTERN.search(query)
         ):
             required.append("HCO ID")
@@ -642,7 +654,9 @@ class ChatResponder:
             "You are an enterprise CRM support analyst. "
             "Use only the user question and SQL data results provided. "
             "Do not rely on any unstated background context. "
-            "If the SQL results are partial or inconclusive, state exactly what they do and do not prove. "
+            "If the SQL results are partial or inconclusive, state exactly what they do and do not prove based on the Data Investigation Framework logic. "
+            "Your goal is to 'connect the dots' for the user: explain *why* something happened (e.g., 'A merge occurred in OneKey, retiring the old record and moving volume to a new territory'). "
+            "Use the exact terminology from the guide (Merge, Move, Retail vs Non-Retail, Reporting Lag). "
             "Provide a direct response without a 'Summary' heading. "
             "Use exactly these sections: Key Findings, Root Cause / Issue Analysis. "
             "Use bullet points for list items. "

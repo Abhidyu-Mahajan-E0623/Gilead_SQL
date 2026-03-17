@@ -29,9 +29,9 @@ Use this guide as instructions, not as an answer key. Do not assume a specific p
 | --- | --- | ---: | --- |
 | `IQVIA-OneKey` | `iqvia_onekey` | 7 | HCP master data with HCO, affiliation, DNC flags |
 | `DCR` | `dcr` | 2 | Data correction / governance event log |
-| `IQVIA-DDD` | `iqvia_ddd` | 4 | Prescriber-level dispensed data |
+| `IQVIA-DDD` | `iqvia_ddd` | 4 | Non-retail HCO-level volume |
 | `Alignment` | `alignment` | 8 | ZIP → territory → region mapping |
-| `Xponent` | `xponent` | 5 | Non-retail HCO-level volume |
+| `Xponent` | `xponent` | 5 | Prescriber-level dispensed data |
 | `867_Shipment` | `867_shipment` | 5 | Shipment records by ship-to location |
 | `CRM` | `crm` | 1 | CRM call activity and DNC flag |
 | `Marketing Opt` | `marketing_opt` | 1 | Marketing opt-out events |
@@ -45,9 +45,9 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 - `HCO`: healthcare organization / account / clinic
 - `NPI`: provider identifier; an HCP may have multiple OneKey records over time but still share one NPI
 - `OneKey` / `IQVIA-OneKey`: the master data system for HCP/HCO records
-- `DDD` / `IQVIA-DDD`: prescriber-level dispensed drug data from IQVIA
+- `DDD` / `IQVIA-DDD`: non-retail outlet or HCO-level volume
 - `Alignment`: ZIP-to-territory-to-region mapping (not HCP-level)
-- `Xponent`: non-retail outlet or HCO-level volume
+- `Xponent`: prescriber-level dispensed drug data from IQVIA (Xponent)
 - `867 Shipment`: shipment data tied to ship-to locations and distributors
 - `CRM`: customer relationship management — call logs and contact permissions
 - `DNC`: Do Not Contact flag — can be digital-only or in-person
@@ -503,8 +503,46 @@ Separate these ideas in answers:
 - Resolve names and addresses to IDs before querying fact tables.
 - Deduplicate `iqvia_onekey` by NPI when joining to DDD (filter `Status = 'Active'` or use specific `HCP_ID`).
 - `Digital_DNC_Flag` and `Inperson_DNC_Flag` are separate — digital opt-out does NOT block in-person (per BR-001).
-- DDD `Month` is short text (`Nov`, `Jan`), not `YYYY-MM`.
-- `Xponent.Period` is an aggregation label (`Last 90 Days`), not a single month.
+- `xponent` (HCP level) uses `Month` (e.g., `Nov`, `Jan`).
+- `iqvia_ddd` (HCO level) uses `Period` (e.g., `Nov`, `Jan`).
 - Use `dcr` first for root-cause questions.
 - Use `business_rules` as the primary source of truth for explaining DNC and crediting policy distinctions.
 - Use this guide as reasoning support, not as pre-fetched evidence.
+
+## 5. Data Investigation Framework (SOPs)
+
+When investigating field data inquiries, follow these diagnostic patterns to identify root causes. Do not rely on a single table; always cross-reference master data with facts.
+
+### SOP 1: Volume Disappearance / Unexpected Drops
+
+A volume drop for a specific provider (HCP) is usually caused by a change in master data or alignment, not just a stop in prescribing.
+
+1.  **Check Record Status**: Query `iqvia_onekey` for all records under the NPI. Look for `Status = 'Retired'` and check the `Master_ID`.
+2.  **Investigate Merges/Moves**:
+    *   **Merge**: If `Master_ID` is populated on a retired record, identify the surviving `Master_ID`.
+    *   **Move**: Compare `HCP_Address` and `HCP_ZIP` across historical and active records.
+3.  **Cross-Reference Alignment**: Use the current `ZIP` from the surviving record to check the `alignment` table. If the `Territory` has changed, the volume has moved to a different owner.
+4.  **Confirm Governance**: Search `dcr` for any `Change_Type` related to 'Merge', 'Realignment', or 'Address Update' for this NPI/ID in the last 30 days.
+5.  **Verify Fact Continuity**: Pull `xponent` for the NPI (old and new IDs). If volume exists on the new ID but in a different territory, the "disappearance" is an attribution change.
+
+### SOP 2: Shipment vs. Dispense (867 vs. DDD)
+
+Reps often confuse "Shipment" (sell-in) with "Dispense" (sell-out).
+
+1.  **Verify Inbound Shipment**: Check `867_shipment` for product, units, and date. Note the `Ship_To_ID`.
+2.  **Verify Ship-To Mapping**: Cross-reference `Ship_To_ID` (or `ZIP`) against the `alignment` or 867 mapping context to ensure it belongs to the rep's territory.
+3.  **Identify Prescriber Context**: Use `iqvia_onekey` to find HCPs affiliated with the `HCO_ID` or address of the ship-to location.
+4.  **Check Credit Eligibility**: Confirm the `Specialty` and `Status` of affiliated HCPs. Only creditable specialties (e.g., ID, HIV, Internal Medicine) generate IC credit.
+5.  **Explain the Lag**: DDD dispensed data has a typical **4–6 week reporting lag** from the date of shipment/dispense. If the shipment is recent, the dispense will not appear yet.
+
+### SOP 3: Account Grain (Retail vs. Non-Retail)
+
+If a rep cannot find prescriber-level volume for an account, the account is likely classified as Non-Retail.
+
+1.  **Check Classification**: Query `iqvia_onekey.Retail` for the HCO. 
+    *   `Retail = 'Y'`: Volume is at the HCP level (look in `xponent`).
+    *   `Retail = 'N'`: Volume is at the Outlet/HCO level (look in `iqvia_ddd`).
+2.  **Match Fact Table to Grain**:
+    *   If Non-Retail, ignore `xponent` and pull volume from `iqvia_ddd` using `HCO_ID`.
+    *   If Retail, pull volume from `xponent` using `NPI`.
+3.  **Verify Territory Link**: If volume is found but not on the dashboard, check the `Territory` field in the fact table. If it doesn't match the rep's territory, check `alignment` for the HCO's ZIP.

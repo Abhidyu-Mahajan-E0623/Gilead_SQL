@@ -322,7 +322,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
                 rows = self.db.con.execute(
                     "SELECT DISTINCT Product FROM ("
                     "SELECT Product FROM iqvia_ddd "
-                    "UNION SELECT Product FROM exponent "
+                    "UNION SELECT Product FROM xponent "
                     "UNION SELECT Product FROM \"867_shipment\""
                     ") ORDER BY Product"
                 ).fetchall()
@@ -434,7 +434,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
     def _heuristic_plan(self, question: str) -> dict | None:
         lowered = question.lower()
         npi = self._extract_first(r"\b(\d{10})\b", question)
-        hco_id = self._extract_first(r"\b(HCO-[A-Z0-9-]+)\b", question)
+        hco_id = self._extract_first(r"\b(HCO[_-][A-Z0-9_-]+)\b", question)
         territory_id = self._extract_territory_id(question)
         product = self._resolve_product_from_question(question)
         resolved_account = self._resolve_account_from_question(question)
@@ -509,7 +509,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
                         "purpose": "Confirm whether prescribing volume continued and how it changed over time.",
                         "sql": (
                             "SELECT NPI, HCP_ID, Product, Month, Units, Territory "
-                            f"FROM iqvia_ddd WHERE NPI = {npi} "
+                            f"FROM xponent WHERE NPI = {npi} "
                             "ORDER BY Month LIMIT 100"
                         ),
                     },
@@ -541,7 +541,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
                         "purpose": "Check non-retail outlet-level volume at HCO grain.",
                         "sql": (
                             "SELECT e.HCO_ID, e.HCO_Name, e.Product, e.Period, e.Units, e.Territory "
-                            "FROM exponent e "
+                            "FROM iqvia_ddd e "
                             f"WHERE e.HCO_ID = '{safe_hco_id}'"
                             f"{product_filter_e} "
                             "LIMIT 100"
@@ -565,7 +565,7 @@ Generate accurate DuckDB SQL queries following these guidelines.
                         "sql": (
                             "SELECT d.NPI, d.HCP_ID, o.HCP_Name, o.HCO_ID, o.HCO_Name, d.Product, d.Month, d.Units, d.Territory "
                             "FROM iqvia_onekey o "
-                            "JOIN iqvia_ddd d ON o.HCP_ID = d.HCP_ID "
+                            "JOIN xponent d ON o.HCP_ID = d.HCP_ID "
                             f"WHERE o.HCO_ID = '{safe_hco_id}'"
                             f"{product_filter_d} "
                             "ORDER BY d.Month, o.HCP_Name LIMIT 100"
@@ -582,9 +582,9 @@ Generate accurate DuckDB SQL queries following these guidelines.
             + "\n## Planning Task\n"
             + "You are planning DuckDB SQL for an analytics question.\n"
             + "Return JSON only.\n"
-            + "Use 1 to 4 focused SQL queries.\n"
-            + "When different evidence must come from different grains or tables, prefer multiple queries over one giant query.\n"
-            + "Typical root-cause questions should separate identity/master-data, alignment, DCR/event history, and volume queries.\n"
+            + "Typical root-cause questions (volume drops, shipments, attribution) MUST follow the 'Data Investigation Framework' in the LLM Guide.\n"
+            + "Always separate queries for: 1. Master Data/Identity (OneKey), 2. Governance Context (DCR), 3. Alignment context (Alignment), and 4. Fact volume (DDD/Xponent/Shipment).\n"
+            + "Be skeptical: if volume is missing, look for record merges (Master_ID), address changes, or reporting lags as defined in the SOPs.\n"
             + "Every SQL statement must be a single read-only DuckDB query with explicit columns and LIMIT.\n"
             + "JSON schema:\n"
             + "{\n"

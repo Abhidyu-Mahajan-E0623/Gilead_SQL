@@ -22,14 +22,14 @@ REFERENCE_PATTERNS = [
 ]
 REFERENCE_RE = re.compile('|'.join(REFERENCE_PATTERNS), re.IGNORECASE)
 EXPLICIT_ID_RE = re.compile(
-    r"\bNPI\b\s*[:#-]?\s*\d{10}\b|\b\d{10}\b|\bHCO[-_][A-Z0-9-]+\b|\bHCP[-_][A-Z0-9-]+\b|"
+    r"\bNPI\b\s*[:#-]?\s*\d{10}\b|\b\d{10}\b|\bHCO[-_][A-Z0-9_-]+\b|\bHCP[-_][A-Z0-9_-]+\b|"
     r"\b[A-Z]{2,5}-\d{2,4}\b",
     re.IGNORECASE,
 )
 
 ENTITY_KEYWORDS = {
     'hcp': ['hcp', 'hcps', 'doctor', 'doctors', 'physician', 'physicians', 'provider', 'providers'],
-    'account': ['account', 'accounts', 'organization', 'organizations'],
+    'account': ['account', 'accounts', 'organization', 'organizations', 'hco', 'hcos'],
     'territory': ['territory', 'territories', 'territory code', 'territory id'],
     'region': ['region', 'regions', 'region code', 'region id'],
     'rep': ['rep', 'reps', 'representative', 'representatives'],
@@ -151,7 +151,7 @@ def resolve_references(session_id: str, user_query: str) -> Dict[str, Any]:
         if any(kw in query_lower for kw in keywords):
             matched_types.append(etype)
     entity_key_map = {
-        'hcp': ['hcp_ids', 'hcp_id'], 'account': ['account_ids', 'account_id'],
+        'hcp': ['hcp_ids', 'hcp_id'], 'account': ['account_ids', 'account_id', 'hco_ids', 'hco_id'],
         'territory': ['territory_codes', 'territory_ids'], 'region': ['region_codes', 'region_ids'],
         'rep': ['rep_ids', 'rep_id'],
     }
@@ -184,7 +184,7 @@ def extract_entities_from_result(result_df, sql: str = None) -> Dict[str, list]:
     if result_df is None or not isinstance(result_df, pd.DataFrame) or result_df.empty:
         return entities
     id_columns = {
-        'hcp_ids': [r'hcp.?id', r'hcp_id'], 'account_ids': [r'account.?id'],
+        'hcp_ids': [r'hcp.?id', r'hcp_id'], 'account_ids': [r'account.?id', r'hco.?id'],
         'territory_ids': [r'territory.?id'], 'region_ids': [r'region.?id'],
         'rep_ids': [r'rep.?id'], 'zip_codes': [r'^zip$'],
     }
