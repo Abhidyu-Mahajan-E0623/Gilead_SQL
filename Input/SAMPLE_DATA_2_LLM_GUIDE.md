@@ -10,6 +10,7 @@ Use this guide as instructions, not as an answer key. Do not assume a specific p
 - Backend: FastAPI app in `backend/src`
 - Analytics store: in-memory DuckDB
 - Data source: every non-JSON file in `Input/` is loaded automatically into DuckDB
+- Every query MUST first check the `business_rules` table to ensure alignment with corporate policies.
 - Each Excel sheet becomes a separate DuckDB table
 - Sheets with `Unnamed:` column headers are auto-fixed: the first data row is promoted to the header and empty leading columns are dropped
 
@@ -28,14 +29,13 @@ Use this guide as instructions, not as an answer key. Do not assume a specific p
 | --- | --- | ---: | --- |
 | `IQVIA-OneKey` | `iqvia_onekey` | 7 | HCP master data with HCO, affiliation, DNC flags |
 | `DCR` | `dcr` | 2 | Data correction / governance event log |
-| `IQVIA-DDD` | `iqvia_ddd` | 6 | Prescriber-level dispensed data |
+| `IQVIA-DDD` | `iqvia_ddd` | 4 | Prescriber-level dispensed data |
 | `Alignment` | `alignment` | 8 | ZIP → territory → region mapping |
-| `Exponent` | `exponent` | 1 | Non-retail HCO-level volume |
+| `Xponent` | `xponent` | 5 | Non-retail HCO-level volume |
 | `867_Shipment` | `867_shipment` | 5 | Shipment records by ship-to location |
 | `CRM` | `crm` | 1 | CRM call activity and DNC flag |
 | `Marketing Opt` | `marketing_opt` | 1 | Marketing opt-out events |
-| `Sales_Credit_Flag` | `sales_credit_flag` | 3 | Specialty crediting lookup |
-| `Business_Rules` | `business_rules` | 2 | Business policy rules (DNC, crediting) |
+| `Business_Rules` | `business_rules` | 3 | Business policy rules (DNC, crediting) |
 
 Use these exact table names in SQL. Column names are mixed-case as listed below — use them exactly.
 
@@ -47,7 +47,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 - `OneKey` / `IQVIA-OneKey`: the master data system for HCP/HCO records
 - `DDD` / `IQVIA-DDD`: prescriber-level dispensed drug data from IQVIA
 - `Alignment`: ZIP-to-territory-to-region mapping (not HCP-level)
-- `Exponent`: non-retail outlet or HCO-level volume
+- `Xponent`: non-retail outlet or HCO-level volume
 - `867 Shipment`: shipment data tied to ship-to locations and distributors
 - `CRM`: customer relationship management — call logs and contact permissions
 - `DNC`: Do Not Contact flag — can be digital-only or in-person
@@ -229,7 +229,7 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 ---
 
-### `exponent`
+### `xponent`
 
 **Grain**: One row per HCO + Product + Period.
 
@@ -277,15 +277,9 @@ Use these exact table names in SQL. Column names are mixed-case as listed below 
 
 ---
 
-### `sales_credit_flag`
+### `sales_credit_flag` (DEPRECATED)
 
-**Grain**: One row per specialty code.
-
-**Columns**: `Specialty_Code`, `Specialty`, `Creditable`, `IC_Credit`
-
-**Key**: `Specialty` text joins to `iqvia_onekey.Specialty`.
-
-**Best use**: Determine whether a provider's specialty is credit-eligible.
+**Note**: This data is no longer provided in the latest workbook. Check `business_rules` for crediting logic.
 
 ---
 
@@ -484,6 +478,14 @@ WHERE Product = '{{PRODUCT}}'
 LIMIT 100;
 ```
 
+### Pattern G: Business Rules Check (MANDATORY)
+
+```sql
+SELECT Rule_ID, "Policy Name", "Rule Description"
+FROM business_rules
+LIMIT 100;
+```
+
 ## 10. Best-Practice Answer Framing
 
 Separate these ideas in answers:
@@ -495,14 +497,14 @@ Separate these ideas in answers:
 ## 11. Short Rules The LLM Should Always Remember
 
 - Use exact table and column names (mixed-case, as stored).
-- Quote `"867_shipment"` in SQL (starts with a digit).
+- MANDATORY: Check `business_rules` for every query to verify policy logic (DNC, crediting, etc.). This is a priority table.
+- Quote `"867_shipment"` and `"business_rules"` if needed (though `business_rules` is safe in DuckDB).
 - Prefer 2-4 focused queries for root-cause questions.
 - Resolve names and addresses to IDs before querying fact tables.
 - Deduplicate `iqvia_onekey` by NPI when joining to DDD (filter `Status = 'Active'` or use specific `HCP_ID`).
 - `Digital_DNC_Flag` and `Inperson_DNC_Flag` are separate — digital opt-out does NOT block in-person (per BR-001).
 - DDD `Month` is short text (`Nov`, `Jan`), not `YYYY-MM`.
-- `Exponent.Period` is an aggregation label (`Last 90 Days`), not a single month.
-- Creditable specialties: Infectious Disease, Internal Medicine, HIV Medicine.
+- `Xponent.Period` is an aggregation label (`Last 90 Days`), not a single month.
 - Use `dcr` first for root-cause questions.
-- Use `business_rules` to explain DNC and crediting policy distinctions.
+- Use `business_rules` as the primary source of truth for explaining DNC and crediting policy distinctions.
 - Use this guide as reasoning support, not as pre-fetched evidence.
