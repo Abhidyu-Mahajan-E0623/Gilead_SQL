@@ -1,0 +1,59 @@
+name: Deploy to Azure App Service
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  AZURE_WEBAPP_NAME: ${{ vars.AZURE_WEBAPP_NAME }}  # Set this in GitHub repo settings > Variables
+  PYTHON_VERSION: "3.12"
+  NODE_VERSION: "20"
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # ── Checkout ──────────────────────────────────────────────────────
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # ── Build Frontend ────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install frontend dependencies
+        working-directory: Gilead-POC-FE-main/Gilead-POC-FE-main
+        run: npm ci
+
+      - name: Build frontend (static export)
+        working-directory: Gilead-POC-FE-main/Gilead-POC-FE-main
+        env:
+          NEXT_PUBLIC_SERVER_URL: ""  # Empty = same origin (backend serves frontend)
+        run: npm run build
+
+      - name: Copy frontend build to backend/static
+        run: |
+          mkdir -p backend/static
+          cp -r Gilead-POC-FE-main/Gilead-POC-FE-main/out/* backend/static/
+
+      # ── Prepare Backend ───────────────────────────────────────────────
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      # ── Deploy to Azure ───────────────────────────────────────────────
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          package: backend

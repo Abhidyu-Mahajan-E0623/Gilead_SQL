@@ -7,11 +7,13 @@ import json
 import logging
 import time
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 
 from .config import load_settings, DB_PATH, METADATA_CATALOG_PATH, DATA_DIR
 from .azure_client import AzureOpenAIClient
@@ -384,3 +386,22 @@ async def playbook_summary():
         "categories": {},
         "semantic_search_enabled": False,
     }
+
+
+# ── Static frontend serving ──────────────────────────────────────────────────
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+if _STATIC_DIR.is_dir():
+    app.mount("/static", StaticFiles(directory=_STATIC_DIR, html=False), name="static-assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_frontend(full_path: str):
+        """Catch-all: serve Next.js static export files."""
+        file = _STATIC_DIR / full_path
+        if file.is_file():
+            return FileResponse(file)
+        # For client-side routes, serve index.html
+        index = _STATIC_DIR / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        raise HTTPException(404, "Not found")
