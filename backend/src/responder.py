@@ -594,20 +594,20 @@ class ChatResponder:
         if bold_match:
             heading = bold_match.group(1).strip().rstrip(":")
             body = bold_match.group(2).strip()
-            return f"**{heading}**", body
+            return f"- **{heading}**", body
 
         plain_match = cls._BULLET_PLAIN_HEADING_RE.match(line)
         if plain_match:
             heading = plain_match.group(1).strip().rstrip(":")
             body = plain_match.group(2).strip()
             if len(heading.split()) <= 8:
-                return f"**{heading}**", body
+                return f"- **{heading}**", body
 
         clean = cls._BULLET_PREFIX_RE.sub("", line).strip()
         if clean.endswith(":") and len(clean[:-1].split()) <= 8:
             heading = clean[:-1].strip()
             if heading:
-                return f"**{heading}**", ""
+                return f"- **{heading}**", ""
 
         return None
 
@@ -636,6 +636,8 @@ class ChatResponder:
                     skip = False
                     output.append(f"**{inner}**")
                     continue
+                output.append(f"- **{inner}**")
+                continue
             if lowered == "summary":
                 skip = False
                 continue
