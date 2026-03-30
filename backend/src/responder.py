@@ -649,7 +649,7 @@ class ChatResponder:
                 heading_label = heading.replace("- **", "").replace("**", "").strip()
                 if heading_label.lower() in self._SECTION_HEADERS:
                     skip = False
-                    output.append(f"**{heading_label}**")
+                    output.append(f"### {heading_label}")
                 else:
                     output.append(f"{heading}\n  {body}" if body else heading)
                 continue
@@ -664,7 +664,7 @@ class ChatResponder:
                     continue
                 if lowered in self._SECTION_HEADERS:
                     skip = False
-                    output.append(f"**{inner}**")
+                    output.append(f"### {inner}")
                     continue
                 output.append(f"- **{inner}**")
                 continue
@@ -673,7 +673,7 @@ class ChatResponder:
                 continue
             if lowered in self._SECTION_HEADERS:
                 skip = False
-                output.append(f"**{stripped}**")
+                output.append(f"### {stripped}")
                 continue
             if skip:
                 continue
@@ -711,6 +711,16 @@ class ChatResponder:
         for pattern, replacement in replacements:
             softened = re.sub(pattern, replacement, softened, flags=re.IGNORECASE)
         return softened
+
+    @staticmethod
+    def _trim_redundant_closing_summary(answer: str) -> str:
+        blocks = [block.strip() for block in re.split(r"\n\s*\n", answer) if block.strip()]
+        if len(blocks) < 3:
+            return answer.strip()
+        last = blocks[-1].lower()
+        if last.startswith(("in summary", "overall", "to sum up", "from what we can see", "put simply")):
+            return "\n\n".join(blocks[:-1]).strip()
+        return answer.strip()
 
     @classmethod
     def _detect_dcr_action(cls, user_text: str, answer_text: str) -> str | None:
@@ -765,14 +775,17 @@ class ChatResponder:
             f"User question:\n{user_message}\n\n"
             f"SQL Data Results:\n{sql_response}\n\n"
             "OUTPUT FORMAT:\n"
-            "1. Start with a direct 1-2 sentence paragraph answering the question.\n"
-            "2. Add a 'Key Findings' section.\n"
-            "3. Inside each section, use bold subheadings followed by normal prose on the next line.\n"
-            "4. Do not turn every supporting sentence into a bullet.\n"
-            "5. Add a 'Detailed Analysis' section in the same style.\n"
-            "6. Do not include Business Impact or Recommended Action sections.\n"
-            "7. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
-            "8. Keep the wording non-technical and helpful unless the user asks for technical detail.\n"
+            "1. Start with a concise executive summary of the whole answer in 1-2 short sentences.\n"
+            "2. Add a 'Key Findings' section with 3-4 short bullets only.\n"
+            "3. Keep each key finding concise and avoid repeating detailed evidence there.\n"
+            "4. Add a 'Detailed Analysis' section with fuller explanations and supporting detail.\n"
+            "5. Do not repeat the same sentence or same idea across the summary, key findings, and detailed analysis.\n"
+            "6. Inside each section, use bold subheadings followed by normal prose on the next line.\n"
+            "7. Do not turn every supporting sentence into a bullet.\n"
+            "8. Do not include Business Impact or Recommended Action sections.\n"
+            "9. Do not add a closing recap paragraph that repeats the opening summary.\n"
+            "10. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
+            "11. Keep the wording non-technical and helpful unless the user asks for technical detail.\n"
         )
         return self.azure_client.chat_completion(
             messages=[
@@ -851,7 +864,9 @@ class ChatResponder:
             fallback = response_text or "No data found."
             return AssistantResult(content=fallback, matched_inquiry_id=None, matched_title=None, confidence=None)
 
-        final = self._soften_technical_tone(self._normalize_structured_output(answer.strip()))
+        final = self._trim_redundant_closing_summary(
+            self._soften_technical_tone(self._normalize_structured_output(answer.strip()))
+        )
         final_text = final or response_text or "No data found."
 
         dcr_prompt = self._detect_dcr_action(user_message_combined, final_text)
