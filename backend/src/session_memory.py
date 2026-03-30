@@ -14,7 +14,9 @@ MAX_HISTORY = 20
 
 REFERENCE_PATTERNS = [
     r'\b(their|them|those|these|the same)\b',
-    r'\b(the (?:above|previous|last|mentioned|selected))\b',
+    # Keep "last" only for explicit record/result references, not time phrases like "last quarter".
+    r'\b(the (?:above|previous|mentioned|selected))\b',
+    r'\b(the last (?:result|query|output|record|provider|hcp|account|territory|one|same one|list|row))\b',
     r'\b((?:same|corresponding|related|associated)\s+\w+)\b',
     r'\b(previous output|previous result|last result|above list|same list)\b',
     r'\b(that (?:record|provider|hcp|account|territory|one|same one))\b',
