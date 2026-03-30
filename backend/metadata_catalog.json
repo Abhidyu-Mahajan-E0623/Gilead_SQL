@@ -15,7 +15,7 @@
         {
           "name": "Shipment_Date",
           "description": "Column Shipment_Date",
-          "type": "TIMESTAMP"
+          "type": "TIMESTAMP_NS"
         },
         {
           "name": "Product",
@@ -25,7 +25,7 @@
         {
           "name": "Units",
           "description": "Column Units",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Distributor",
@@ -45,7 +45,153 @@
         {
           "name": "ZIP",
           "description": "Column ZIP",
-          "type": "INTEGER"
+          "type": "BIGINT"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "access_barriers",
+      "business_purpose": "Auto-discovered table access_barriers",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Product",
+          "description": "Column Product",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Barrier_Type",
+          "description": "Column Barrier_Type",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Barrier_Status",
+          "description": "Column Barrier_Status",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Barrier_Severity",
+          "description": "Column Barrier_Severity",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Effective_Date",
+          "description": "Column Effective_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Notes",
+          "description": "Column Notes",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "activity_performance_summary",
+      "business_purpose": "Auto-discovered table activity_performance_summary",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "Quarter",
+          "description": "Column Quarter",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Region",
+          "description": "Column Region",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Decile",
+          "description": "Column Decile",
+          "type": "BIGINT"
+        },
+        {
+          "name": "Opportunity_Segment",
+          "description": "Column Opportunity_Segment",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Field_Target_Flag",
+          "description": "Column Field_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Claims_Target_Flag",
+          "description": "Column Claims_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Call_Count",
+          "description": "Column Call_Count",
+          "type": "BIGINT"
+        },
+        {
+          "name": "Avg_Calls_Per_Month",
+          "description": "Column Avg_Calls_Per_Month",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Reached_Flag",
+          "description": "Column Reached_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "TRx",
+          "description": "Column TRx",
+          "type": "BIGINT"
+        },
+        {
+          "name": "Prior_Quarter_TRx",
+          "description": "Column Prior_Quarter_TRx",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "TRx_Growth_Pct",
+          "description": "Column TRx_Growth_Pct",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Avg_Message_Depth_Score",
+          "description": "Column Avg_Message_Depth_Score",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Avg_Engagement_Score",
+          "description": "Column Avg_Engagement_Score",
+          "type": "DOUBLE"
+        },
+        {
+          "name": "Access_Barrier_Flag",
+          "description": "Column Access_Barrier_Flag",
+          "type": "VARCHAR"
         }
       ],
       "joins": []
@@ -58,7 +204,7 @@
         {
           "name": "ZIP",
           "description": "Column ZIP",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Territory",
@@ -129,7 +275,7 @@
         {
           "name": "Last_Call_Date",
           "description": "Column Last_Call_Date",
-          "type": "TIMESTAMP"
+          "type": "TIMESTAMP_NS"
         },
         {
           "name": "Call_Frequency",
@@ -145,6 +291,69 @@
       "joins": []
     },
     {
+      "table_name": "crm_call_history",
+      "business_purpose": "Auto-discovered table crm_call_history",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "Call_ID",
+          "description": "Column Call_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Call_Date",
+          "description": "Column Call_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Region",
+          "description": "Column Region",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Rep_ID",
+          "description": "Column Rep_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Channel",
+          "description": "Column Channel",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Message_Theme",
+          "description": "Column Message_Theme",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Message_Depth",
+          "description": "Column Message_Depth",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Call_Outcome",
+          "description": "Column Call_Outcome",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
       "table_name": "dcr",
       "business_purpose": "Auto-discovered table dcr",
       "grain": "inferred",
@@ -152,7 +361,7 @@
         {
           "name": "Change_Date",
           "description": "Column Change_Date",
-          "type": "TIMESTAMP"
+          "type": "TIMESTAMP_NS"
         },
         {
           "name": "Entity",
@@ -172,6 +381,64 @@
         {
           "name": "Details",
           "description": "Column Details",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
+      "table_name": "hcp_targeting",
+      "business_purpose": "Auto-discovered table hcp_targeting",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Region",
+          "description": "Column Region",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Decile",
+          "description": "Column Decile",
+          "type": "BIGINT"
+        },
+        {
+          "name": "Opportunity_Segment",
+          "description": "Column Opportunity_Segment",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Claims_Based_Potential_TRx",
+          "description": "Column Claims_Based_Potential_TRx",
+          "type": "BIGINT"
+        },
+        {
+          "name": "Claims_Target_Flag",
+          "description": "Column Claims_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Field_Target_Flag",
+          "description": "Column Field_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Priority_HCP_Flag",
+          "description": "Column Priority_HCP_Flag",
           "type": "VARCHAR"
         }
       ],
@@ -205,7 +472,7 @@
         {
           "name": "Units",
           "description": "Column Units",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Territory",
@@ -233,7 +500,7 @@
         {
           "name": "NPI",
           "description": "Column NPI",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Master_ID",
@@ -243,7 +510,7 @@
         {
           "name": "Specialty_Code",
           "description": "Column Specialty_Code",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Specialty",
@@ -273,7 +540,7 @@
         {
           "name": "HCP_ZIP",
           "description": "Column HCP_ZIP",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "HCO_ID",
@@ -303,7 +570,7 @@
         {
           "name": "HCO_ZIP",
           "description": "Column HCO_ZIP",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Affiliation_Type",
@@ -346,7 +613,7 @@
         {
           "name": "Opt_Out_Date",
           "description": "Column Opt_Out_Date",
-          "type": "TIMESTAMP"
+          "type": "TIMESTAMP_NS"
         },
         {
           "name": "HCP_ID",
@@ -377,6 +644,69 @@
       "joins": []
     },
     {
+      "table_name": "target_list_refresh",
+      "business_purpose": "Auto-discovered table target_list_refresh",
+      "grain": "inferred",
+      "columns": [
+        {
+          "name": "HCP_ID",
+          "description": "Column HCP_ID",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "HCP_Name",
+          "description": "Column HCP_Name",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Territory",
+          "description": "Column Territory",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Region",
+          "description": "Column Region",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Field_Target_List_Version",
+          "description": "Column Field_Target_List_Version",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Field_Target_Refresh_Date",
+          "description": "Column Field_Target_Refresh_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Claims_Potential_Version",
+          "description": "Column Claims_Potential_Version",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Claims_Refresh_Date",
+          "description": "Column Claims_Refresh_Date",
+          "type": "TIMESTAMP_NS"
+        },
+        {
+          "name": "Field_Target_Flag",
+          "description": "Column Field_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Claims_Target_Flag",
+          "description": "Column Claims_Target_Flag",
+          "type": "VARCHAR"
+        },
+        {
+          "name": "Alignment_Status",
+          "description": "Column Alignment_Status",
+          "type": "VARCHAR"
+        }
+      ],
+      "joins": []
+    },
+    {
       "table_name": "xponent",
       "business_purpose": "Auto-discovered table xponent",
       "grain": "inferred",
@@ -384,7 +714,7 @@
         {
           "name": "NPI",
           "description": "Column NPI",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "HCP_ID",
@@ -404,7 +734,7 @@
         {
           "name": "Units",
           "description": "Column Units",
-          "type": "INTEGER"
+          "type": "BIGINT"
         },
         {
           "name": "Territory",
@@ -417,27 +747,441 @@
   ],
   "canonical_relationships": [
     {
+      "from": "867_shipment.Product",
+      "to": "xponent.Product",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "activity_performance_summary.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "activity_performance_summary.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "crm.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "crm.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "crm_call_history.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "crm_call_history.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "hcp_targeting.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "hcp_targeting.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.Product",
+      "to": "iqvia_ddd.Product",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "iqvia_onekey.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "target_list_refresh.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "access_barriers.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Territory",
+      "to": "crm.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_ID",
+      "to": "crm.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_Name",
+      "to": "crm.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Region",
+      "to": "crm_call_history.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Territory",
+      "to": "crm_call_history.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_ID",
+      "to": "crm_call_history.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_Name",
+      "to": "crm_call_history.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Region",
+      "to": "hcp_targeting.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Territory",
+      "to": "hcp_targeting.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_ID",
+      "to": "hcp_targeting.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_Name",
+      "to": "hcp_targeting.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Decile",
+      "to": "hcp_targeting.Decile",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Opportunity_Segment",
+      "to": "hcp_targeting.Opportunity_Segment",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Field_Target_Flag",
+      "to": "hcp_targeting.Field_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Claims_Target_Flag",
+      "to": "hcp_targeting.Claims_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_Name",
+      "to": "iqvia_onekey.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Region",
+      "to": "target_list_refresh.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Territory",
+      "to": "target_list_refresh.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_ID",
+      "to": "target_list_refresh.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Field_Target_Flag",
+      "to": "target_list_refresh.Field_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.Claims_Target_Flag",
+      "to": "target_list_refresh.Claims_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "activity_performance_summary.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
+      "type": "value_overlap"
+    },
+    {
       "from": "alignment.Territory",
       "to": "iqvia_ddd.Territory",
       "confidence": 0.67,
       "type": "value_overlap"
     },
     {
+      "from": "alignment.Territory",
+      "to": "xponent.Territory",
+      "confidence": 0.83,
+      "type": "value_overlap"
+    },
+    {
       "from": "crm.HCP_ID",
-      "to": "marketing_opt.HCP_ID",
+      "to": "crm_call_history.HCP_ID",
       "confidence": 1.0,
       "type": "value_overlap"
     },
     {
       "from": "crm.HCP_Name",
-      "to": "marketing_opt.HCP_Name",
+      "to": "crm_call_history.HCP_Name",
       "confidence": 1.0,
       "type": "value_overlap"
     },
     {
-      "from": "iqvia_ddd.Product",
-      "to": "xponent.Product",
+      "from": "crm.Territory",
+      "to": "crm_call_history.Territory",
       "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_ID",
+      "to": "hcp_targeting.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_Name",
+      "to": "hcp_targeting.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.Territory",
+      "to": "hcp_targeting.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_Name",
+      "to": "iqvia_onekey.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_ID",
+      "to": "target_list_refresh.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.Territory",
+      "to": "target_list_refresh.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_ID",
+      "to": "hcp_targeting.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_Name",
+      "to": "hcp_targeting.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.Territory",
+      "to": "hcp_targeting.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.Region",
+      "to": "hcp_targeting.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_Name",
+      "to": "iqvia_onekey.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_ID",
+      "to": "target_list_refresh.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.Territory",
+      "to": "target_list_refresh.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.Region",
+      "to": "target_list_refresh.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "crm_call_history.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.HCP_Name",
+      "to": "iqvia_onekey.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.HCP_ID",
+      "to": "target_list_refresh.HCP_ID",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.Territory",
+      "to": "target_list_refresh.Territory",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.Region",
+      "to": "target_list_refresh.Region",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.Claims_Target_Flag",
+      "to": "target_list_refresh.Claims_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.Field_Target_Flag",
+      "to": "target_list_refresh.Field_Target_Flag",
+      "confidence": 1.0,
+      "type": "value_overlap"
+    },
+    {
+      "from": "hcp_targeting.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
+      "type": "value_overlap"
+    },
+    {
+      "from": "iqvia_ddd.Territory",
+      "to": "xponent.Territory",
+      "confidence": 0.8,
+      "type": "value_overlap"
+    },
+    {
+      "from": "iqvia_onekey.HCP_Name",
+      "to": "target_list_refresh.HCP_Name",
+      "confidence": 0.64,
+      "type": "value_overlap"
+    },
+    {
+      "from": "iqvia_onekey.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.87,
+      "type": "value_overlap"
+    },
+    {
+      "from": "iqvia_onekey.NPI",
+      "to": "xponent.NPI",
+      "confidence": 0.86,
+      "type": "value_overlap"
+    },
+    {
+      "from": "target_list_refresh.HCP_ID",
+      "to": "xponent.HCP_ID",
+      "confidence": 0.69,
       "type": "value_overlap"
     }
   ]
