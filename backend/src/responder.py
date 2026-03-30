@@ -584,6 +584,32 @@ class ChatResponder:
         "issue analysis",
     }
     _SKIP_SECTIONS = {"business impact", "recommended action", "recommended actions"}
+    _BULLET_PREFIX_RE = re.compile(r"^(-|\d+\.)\s*")
+    _BULLET_BOLD_HEADING_RE = re.compile(r"^(?:-|\d+\.)\s+\*\*(.+?)\*\*:?\s*(.*)$")
+    _BULLET_PLAIN_HEADING_RE = re.compile(r"^(?:-|\d+\.)\s+([A-Z][A-Za-z0-9/&()'\- ]{1,80}):\s*(.*)$")
+
+    @classmethod
+    def _split_bullet_heading(cls, line: str) -> tuple[str, str] | None:
+        bold_match = cls._BULLET_BOLD_HEADING_RE.match(line)
+        if bold_match:
+            heading = bold_match.group(1).strip().rstrip(":")
+            body = bold_match.group(2).strip()
+            return f"**{heading}**", body
+
+        plain_match = cls._BULLET_PLAIN_HEADING_RE.match(line)
+        if plain_match:
+            heading = plain_match.group(1).strip().rstrip(":")
+            body = plain_match.group(2).strip()
+            if len(heading.split()) <= 8:
+                return f"**{heading}**", body
+
+        clean = cls._BULLET_PREFIX_RE.sub("", line).strip()
+        if clean.endswith(":") and len(clean[:-1].split()) <= 8:
+            heading = clean[:-1].strip()
+            if heading:
+                return f"**{heading}**", ""
+
+        return None
 
     def _normalize_structured_output(self, answer: str) -> str:
         raw_lines = [line.strip() for line in answer.splitlines() if line.strip()]
@@ -620,8 +646,16 @@ class ChatResponder:
             if skip:
                 continue
             if line.startswith("-") or re.match(r"^\d+\.", line):
-                clean = re.sub(r"^(-|\d+\.)\s*", "", line)
-                output.append(f"- {clean}")
+                split_heading = self._split_bullet_heading(line)
+                if split_heading:
+                    heading, body = split_heading
+                    output.append(heading)
+                    if body:
+                        output.append(body)
+                    continue
+                clean = self._BULLET_PREFIX_RE.sub("", line).strip()
+                if clean:
+                    output.append(clean)
             else:
                 output.append(line)
         return "\n\n".join(output)
@@ -662,7 +696,9 @@ class ChatResponder:
             "Use the exact terminology from the guide (Merge, Move, Retail vs Non-Retail, Reporting Lag). "
             "Provide a direct response without a 'Summary' heading. "
             "Use exactly these sections: Key Findings, Detailed Analysis. "
-            "Use bullet points for list items. "
+            "Do not format every sentence as a bullet point. "
+            "Prefer short paragraphs under bold subheadings. "
+            "Use bullets only when enumerating short labels, not for full explanatory sentences. "
             "Do not invent facts. Do not apologize. Professional tone. "
             "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
             "PRIORITY RULE 1: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data. "
@@ -674,10 +710,12 @@ class ChatResponder:
             f"SQL Data Results:\n{sql_response}\n\n"
             "OUTPUT FORMAT:\n"
             "1. Start with a direct 1-2 sentence paragraph answering the question.\n"
-            "2. Add a 'Key Findings' section with bullet points.\n"
-            "3. Add a 'Detailed Analysis' section with bullet points.\n"
-            "4. Do not include Business Impact or Recommended Action sections.\n"
-            "5. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
+            "2. Add a 'Key Findings' section.\n"
+            "3. Inside each section, use bold subheadings followed by normal prose on the next line.\n"
+            "4. Do not turn every supporting sentence into a bullet.\n"
+            "5. Add a 'Detailed Analysis' section in the same style.\n"
+            "6. Do not include Business Impact or Recommended Action sections.\n"
+            "7. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
         )
         return self.azure_client.chat_completion(
             messages=[
