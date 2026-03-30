@@ -12,7 +12,7 @@
 .messageMarkdownContent h5,
 .messageMarkdownContent h6 {
   font-weight: 600;
-  margin: 16px 0 8px 0;
+  margin: 12px 0 4px 0;
   color: #1a1a1a;
 }
 
@@ -44,29 +44,29 @@
 }
 
 .messageMarkdownContent ul {
-  margin: 12px 0;
-  padding-left: 24px;
+  margin: 6px 0 8px;
+  padding-left: 20px;
   list-style-type: disc;
 }
 
 .messageMarkdownContent ol {
-  margin: 12px 0;
-  padding-left: 24px;
+  margin: 6px 0 8px;
+  padding-left: 20px;
   list-style-type: decimal;
 }
 
 .messageMarkdownContent li {
-  margin: 6px 0;
-  line-height: 1.6;
+  margin: 3px 0;
+  line-height: 1.5;
 }
 
 .messageMarkdownContent li > p {
-  margin: 4px 0;
+  margin: 2px 0 0;
 }
 
 .messageMarkdownContent p {
-  margin: 12px 0;
-  line-height: 1.6;
+  margin: 8px 0;
+  line-height: 1.55;
 }
 
 .messageMarkdownContent p:first-child {
@@ -75,6 +75,16 @@
 
 .messageMarkdownContent p:last-child {
   margin-bottom: 0;
+}
+
+.messageMarkdownContent ul + p,
+.messageMarkdownContent ol + p {
+  margin-top: 4px;
+}
+
+.messageMarkdownContent p + ul,
+.messageMarkdownContent p + ol {
+  margin-top: 6px;
 }
 
 .messageMarkdownContent code {

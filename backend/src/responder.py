@@ -651,9 +651,7 @@ class ChatResponder:
                     skip = False
                     output.append(f"**{heading_label}**")
                 else:
-                    output.append(heading)
-                    if body:
-                        output.append(body)
+                    output.append(f"{heading}\n  {body}" if body else heading)
                 continue
             if line.startswith("**") and line.endswith("**"):
                 inner = line.strip("*").strip().rstrip(":")
@@ -683,9 +681,7 @@ class ChatResponder:
                 split_heading = self._split_bullet_heading(line)
                 if split_heading:
                     heading, body = split_heading
-                    output.append(heading)
-                    if body:
-                        output.append(body)
+                    output.append(f"{heading}\n  {body}" if body else heading)
                     continue
                 clean = self._BULLET_PREFIX_RE.sub("", line).strip()
                 if clean:
@@ -693,6 +689,28 @@ class ChatResponder:
             else:
                 output.append(line)
         return "\n\n".join(output)
+
+    @staticmethod
+    def _soften_technical_tone(answer: str) -> str:
+        replacements = [
+            (r"\bThe SQL results show that\b", "What stands out here is that"),
+            (r"\bThe SQL results show\b", "What stands out here"),
+            (r"\bThe SQL query to\b", "The check to"),
+            (r"\bThe SQL query\b", "The check"),
+            (r"\bThe SQL data from\b", "The data from"),
+            (r"\bThe SQL data\b", "The data"),
+            (r"\bThe targeting alignment query reveals that\b", "What we can see from the targeting alignment view is that"),
+            (r"\bThe targeting alignment query reveals\b", "What we can see from the targeting alignment view"),
+            (r"\bThe call execution quality data highlights\b", "Call execution details suggest"),
+            (r"\bThe SQL results do not provide data on\b", "We do not have direct evidence on"),
+            (r"\bThe SQL results do not provide\b", "We do not have direct evidence of"),
+            (r"\bAlthough the SQL results do not provide\b", "Even so, we do not have direct evidence of"),
+            (r"\bThis indicates\b", "This suggests"),
+        ]
+        softened = answer
+        for pattern, replacement in replacements:
+            softened = re.sub(pattern, replacement, softened, flags=re.IGNORECASE)
+        return softened
 
     @classmethod
     def _detect_dcr_action(cls, user_text: str, answer_text: str) -> str | None:
@@ -722,17 +740,21 @@ class ChatResponder:
             return None
 
         system_prompt = (
-            "You are an enterprise CRM support analyst. "
+            "You are a helpful CRM support partner for field users. "
             "Use only the user question and SQL data results provided. "
             "Do not rely on any unstated background context. "
             "If the SQL results are partial or inconclusive, state exactly what they do and do not prove based on the Data Investigation Framework logic. "
-            "Your goal is to 'connect the dots' for the user: explain *why* something happened (e.g., 'A merge occurred in OneKey, retiring the old record and moving volume to a new territory'). "
+            "Your goal is to connect the dots for the user and explain what is happening in clear, supportive language. "
             "Use the exact terminology from the guide (Merge, Move, Retail vs Non-Retail, Reporting Lag). "
             "Provide a direct response without a 'Summary' heading. "
             "Use exactly these sections: Key Findings, Detailed Analysis. "
             "Do not format every sentence as a bullet point. "
             "Prefer short paragraphs under bold subheadings. "
             "Use bullets only when enumerating short labels, not for full explanatory sentences. "
+            "Keep the tone warm, helpful, and business-friendly. "
+            "Do not say phrases like 'SQL results show', 'the query reveals', or 'the SQL data indicates' unless the user explicitly asks for technical detail. "
+            "Prefer phrases like 'what stands out here', 'what this suggests', or 'from what we can see'. "
+            "Avoid table names, query names, and implementation details unless the user asks for them. "
             "Do not invent facts. Do not apologize. Professional tone. "
             "Never state or imply that a Data Correction Request (DCR) or similar request has already been submitted. "
             "PRIORITY RULE 1: For Retail records (Retail = 'Y'), never use or mention iqvia_ddd (HCO-level) data for volume; only use xponent (HCP-level) data. "
@@ -750,6 +772,7 @@ class ChatResponder:
             "5. Add a 'Detailed Analysis' section in the same style.\n"
             "6. Do not include Business Impact or Recommended Action sections.\n"
             "7. If evidence is incomplete, say that clearly in Detailed Analysis.\n"
+            "8. Keep the wording non-technical and helpful unless the user asks for technical detail.\n"
         )
         return self.azure_client.chat_completion(
             messages=[
@@ -828,7 +851,7 @@ class ChatResponder:
             fallback = response_text or "No data found."
             return AssistantResult(content=fallback, matched_inquiry_id=None, matched_title=None, confidence=None)
 
-        final = self._normalize_structured_output(answer.strip())
+        final = self._soften_technical_tone(self._normalize_structured_output(answer.strip()))
         final_text = final or response_text or "No data found."
 
         dcr_prompt = self._detect_dcr_action(user_message_combined, final_text)
