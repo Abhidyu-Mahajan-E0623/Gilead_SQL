@@ -587,6 +587,8 @@ class ChatResponder:
     _BULLET_PREFIX_RE = re.compile(r"^(-|\d+\.)\s*")
     _BULLET_BOLD_HEADING_RE = re.compile(r"^(?:-|\d+\.)\s+\*\*(.+?)\*\*:?\s*(.*)$")
     _BULLET_PLAIN_HEADING_RE = re.compile(r"^(?:-|\d+\.)\s+([A-Z][A-Za-z0-9/&()'\- ]{1,80}):\s*(.*)$")
+    _INLINE_BOLD_HEADING_RE = re.compile(r"^\*\*(.+?)\*\*:?\s*(.*)$")
+    _INLINE_PLAIN_HEADING_RE = re.compile(r"^([A-Z][A-Za-z0-9/&()'\- ]{1,80}):\s*(.*)$")
 
     @classmethod
     def _split_bullet_heading(cls, line: str) -> tuple[str, str] | None:
@@ -611,6 +613,24 @@ class ChatResponder:
 
         return None
 
+    @classmethod
+    def _split_inline_heading(cls, line: str) -> tuple[str, str] | None:
+        bold_match = cls._INLINE_BOLD_HEADING_RE.match(line)
+        if bold_match:
+            heading = bold_match.group(1).strip().rstrip(":")
+            body = bold_match.group(2).strip()
+            if heading:
+                return f"- **{heading}**", body
+
+        plain_match = cls._INLINE_PLAIN_HEADING_RE.match(line)
+        if plain_match:
+            heading = plain_match.group(1).strip().rstrip(":")
+            body = plain_match.group(2).strip()
+            if heading and body and len(heading.split()) <= 8:
+                return f"- **{heading}**", body
+
+        return None
+
     def _normalize_structured_output(self, answer: str) -> str:
         raw_lines = [line.strip() for line in answer.splitlines() if line.strip()]
         if not raw_lines:
@@ -622,6 +642,18 @@ class ChatResponder:
             lowered = stripped.lower()
             if lowered in self._SKIP_SECTIONS:
                 skip = True
+                continue
+            inline_heading = self._split_inline_heading(line)
+            if inline_heading:
+                heading, body = inline_heading
+                heading_label = heading.replace("- **", "").replace("**", "").strip()
+                if heading_label.lower() in self._SECTION_HEADERS:
+                    skip = False
+                    output.append(f"**{heading_label}**")
+                else:
+                    output.append(heading)
+                    if body:
+                        output.append(body)
                 continue
             if line.startswith("**") and line.endswith("**"):
                 inner = line.strip("*").strip().rstrip(":")
