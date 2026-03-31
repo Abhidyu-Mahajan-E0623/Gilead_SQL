@@ -56,7 +56,7 @@ export const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ childr
             <h2
               className="text-2xl font-bold bg-clip-text text-transparent"
               style={{
-                background: 'linear-gradient(180deg, #c5203f 0%, #8a162c 100%)',
+                background: 'linear-gradient(180deg, #007ECC 0%, #001E96 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',

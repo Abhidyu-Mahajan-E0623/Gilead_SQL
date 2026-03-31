@@ -242,12 +242,12 @@ const MessageLeft: React.FC<MessageLeftProps> = ({ content, isLoading = false, r
                   >
                     {hoveredRating ? (
                       star <= hoveredRating ? (
-                        <AiFillStar size={18} color="#8a162c" />
+                        <AiFillStar size={18} color="#001E96" />
                       ) : (
                         <AiOutlineStar size={18} />
                       )
                     ) : rating >= star ? (
-                      <AiFillStar size={18} color="#8a162c" />
+                      <AiFillStar size={18} color="#001E96" />
                     ) : (
                       <AiOutlineStar size={18} />
                     )}

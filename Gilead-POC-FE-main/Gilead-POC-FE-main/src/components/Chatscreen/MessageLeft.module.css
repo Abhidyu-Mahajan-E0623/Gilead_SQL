@@ -12,7 +12,7 @@
 .messageMarkdownContent h5,
 .messageMarkdownContent h6 {
   font-weight: 600;
-  margin: 8px 0 2px 0;
+  margin: 16px 0 8px 0;
   color: #1a1a1a;
 }
 
@@ -44,29 +44,29 @@
 }
 
 .messageMarkdownContent ul {
-  margin: 4px 0 6px;
-  padding-left: 20px;
+  margin: 12px 0;
+  padding-left: 24px;
   list-style-type: disc;
 }
 
 .messageMarkdownContent ol {
-  margin: 4px 0 6px;
-  padding-left: 20px;
+  margin: 12px 0;
+  padding-left: 24px;
   list-style-type: decimal;
 }
 
 .messageMarkdownContent li {
-  margin: 2px 0;
-  line-height: 1.5;
+  margin: 6px 0;
+  line-height: 1.6;
 }
 
 .messageMarkdownContent li > p {
-  margin: 1px 0 0;
+  margin: 4px 0;
 }
 
 .messageMarkdownContent p {
-  margin: 6px 0;
-  line-height: 1.55;
+  margin: 12px 0;
+  line-height: 1.6;
 }
 
 .messageMarkdownContent p:first-child {
@@ -77,23 +77,13 @@
   margin-bottom: 0;
 }
 
-.messageMarkdownContent ul + p,
-.messageMarkdownContent ol + p {
-  margin-top: 2px;
-}
-
-.messageMarkdownContent p + ul,
-.messageMarkdownContent p + ol {
-  margin-top: 4px;
-}
-
 .messageMarkdownContent code {
   background-color: #f3f4f6;
   padding: 2px 6px;
   border-radius: 4px;
   font-family: 'Courier New', Courier, monospace;
   font-size: 0.9em;
-  color: #e63946;
+  color: #005CD9;
 }
 
 .messageMarkdownContent pre {
@@ -113,7 +103,7 @@
 }
 
 .messageMarkdownContent blockquote {
-  border-left: 4px solid #8a162c;
+  border-left: 4px solid #001E96;
   margin: 12px 0;
   padding-left: 16px;
   color: #6b7280;
@@ -145,12 +135,12 @@
 }
 
 .messageMarkdownContent a {
-  color: #8a162c;
+  color: #001E96;
   text-decoration: underline;
 }
 
 .messageMarkdownContent a:hover {
-  color: #c5203f;
+  color: #007ECC;
 }
 
 .messageMarkdownContent hr {
@@ -163,7 +153,7 @@
   position: absolute;
   top: -30px;
   left: 0;
-  background-color: #8a162c;
+  background-color: #001E96;
   color: white;
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
@@ -198,7 +188,7 @@
 }
 
 .reasoningBubble:hover {
-  box-shadow: 0 10px 28px rgba(138, 22, 44, 0.1);
+  box-shadow: 0 10px 28px rgba(0, 30, 150, 0.1);
 }
 
 .reasoningHeader {
@@ -215,14 +205,14 @@
 }
 
 .reasoningTitle {
-  color: #8a162c;
+  color: #001E96;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.01em;
 }
 
 .reasoningChevron {
-  color: rgba(138, 22, 44, 0.65);
+  color: rgba(0, 30, 150, 0.65);
   flex-shrink: 0;
 }
 
@@ -236,7 +226,7 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #dc6a7d 0%, #8a162c 100%);
+  background: linear-gradient(180deg, #005CD9 0%, #001E96 100%);
   animation: thinkingPulse 1.1s ease-in-out infinite;
 }
 
@@ -250,14 +240,14 @@
 
 .reasoningSummary {
   margin-top: 10px;
-  color: rgba(138, 22, 44, 0.72);
+  color: rgba(0, 30, 150, 0.72);
   font-size: 0.95rem;
   line-height: 1.55;
 }
 
 .reasoningHint {
   margin-top: 10px;
-  color: rgba(138, 22, 44, 0.48);
+  color: rgba(0, 30, 150, 0.48);
   font-size: 0.8rem;
   line-height: 1.4;
 }
@@ -272,7 +262,7 @@
   position: relative;
   margin: 0;
   padding-left: 14px;
-  color: rgba(138, 22, 44, 0.64);
+  color: rgba(0, 30, 150, 0.64);
   font-size: 0.88rem;
   line-height: 1.55;
   animation: reasoningFadeIn 0.22s ease-out;
@@ -286,11 +276,11 @@
   width: 5px;
   height: 5px;
   border-radius: 999px;
-  background: rgba(197, 32, 63, 0.65);
+  background: rgba(0, 126, 204, 0.65);
 }
 
 .reasoningDetailCurrent {
-  color: rgba(138, 22, 44, 0.54);
+  color: rgba(0, 30, 150, 0.54);
 }
 
 .reasoningDetailCurrent::before {
@@ -303,7 +293,7 @@
   height: 0.95em;
   margin-left: 3px;
   vertical-align: -0.1em;
-  background: rgba(138, 22, 44, 0.55);
+  background: rgba(0, 30, 150, 0.55);
   animation: reasoningCursorBlink 0.9s step-end infinite;
 }
 
@@ -313,7 +303,7 @@
   gap: 8px;
   margin: 2px 0 0;
   padding-left: 14px;
-  color: rgba(138, 22, 44, 0.48);
+  color: rgba(0, 30, 150, 0.48);
   font-size: 0.84rem;
   line-height: 1.5;
 }
@@ -328,7 +318,7 @@
   width: 4px;
   height: 4px;
   border-radius: 999px;
-  background: rgba(138, 22, 44, 0.42);
+  background: rgba(0, 30, 150, 0.42);
   animation: reasoningPulse 1.1s ease-in-out infinite;
 }
 
@@ -352,7 +342,7 @@
   width: 6px;
   height: 6px;
   border-radius: 999px;
-  background: linear-gradient(180deg, #dc6a7d 0%, #8a162c 100%);
+  background: linear-gradient(180deg, #005CD9 0%, #001E96 100%);
   animation: thinkingPulse 1s ease-in-out infinite;
 }
 

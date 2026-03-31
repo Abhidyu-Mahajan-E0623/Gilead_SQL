@@ -271,7 +271,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isCollapsed = false, onToggleCollapse
                             }}
                             className={`w-full text-left px-3 py-3 pr-24 rounded-2xl transition-colors cursor-pointer group border ${
                               isActive
-                                ? 'bg-red-50 border-red-100'
+                                ? 'bg-blue-50 border-blue-100'
                                 : 'bg-transparent border-transparent hover:bg-gray-50'
                             }`}
                           >

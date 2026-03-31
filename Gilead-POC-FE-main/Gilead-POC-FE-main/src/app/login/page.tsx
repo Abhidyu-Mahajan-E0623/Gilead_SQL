@@ -41,7 +41,7 @@ export default function LoginPage() {
             <h1
               className="text-3xl font-bold bg-clip-text text-transparent mb-2"
               style={{
-                background: 'linear-gradient(180deg, #c5203f 0%, #8a162c 100%)',
+                background: 'linear-gradient(180deg, #007ECC 0%, #001E96 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -99,7 +99,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r cursor-pointer from-primary to-[#8a162c] text-white py-3 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-gradient-to-r cursor-pointer from-primary to-primary-dark text-white py-3 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:scale-[1.02] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {isLoading ? (
                 <span className="flex items-center justify-center">

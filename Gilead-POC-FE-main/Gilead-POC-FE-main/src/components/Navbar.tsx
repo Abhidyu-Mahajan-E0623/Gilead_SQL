@@ -42,14 +42,16 @@ const Navbar = () => {
         <div className="h-8 lg:h-10 w-[2px] bg-primary"></div>
 
         {/* Second Logo */}
-        <Image
-          src="/Images/GileadLogo.png"
-          alt="Gilead Logo"
-          width={120}
-          height={32}
-          priority
-          className="h-8 lg:h-8 w-auto flex-shrink-0"
-        />
+        <span className="text-xl lg:text-2xl font-bold bg-clip-text text-transparent tracking-tight"
+          style={{
+            background: 'linear-gradient(180deg, #007ECC 0%, #001E96 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+          }}
+        >
+          Compass
+        </span>
       </div>
 
       {/* Right side - User Icon & Logout (only show if authenticated and not on login page) */}

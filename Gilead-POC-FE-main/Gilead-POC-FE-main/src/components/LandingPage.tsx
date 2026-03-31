@@ -2,7 +2,6 @@
 import React, { useState } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { PRESET_QUESTIONS } from '@/utils/constants';
 import { createChat, notifyChatHistoryUpdated, storePendingPrompt } from '@/utils/api/chat';
 
 const LandingPage = () => {
@@ -10,17 +9,6 @@ const LandingPage = () => {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const router = useRouter();
-
-  const handleQuestionClick = (question: string) => {
-    setInputValue(question);
-    setTimeout(() => {
-      const textarea = document.querySelector('textarea');
-      if (textarea) {
-        textarea.focus();
-        textarea.setSelectionRange(textarea.value.length, textarea.value.length);
-      }
-    }, 0);
-  };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -77,7 +65,7 @@ const LandingPage = () => {
           <h1
             className="text-[50px] font-semibold bg-clip-text text-transparent"
             style={{
-              background: 'linear-gradient(180deg, #8a162c 0%, #c5203f 50%, #e63946 100%)',
+              background: 'linear-gradient(180deg, #007ECC 0%, #001E96 50%, #005CD9 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -138,30 +126,6 @@ const LandingPage = () => {
           </div>
 
           {submitError && <p className="text-sm text-red-600 mt-3">{submitError}</p>}
-
-          {/* Preset Questions */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-[20px] max-w-4xl mx-auto fade-in delay-3">
-            {PRESET_QUESTIONS.map((question, index) => (
-              <button
-                key={index}
-                onClick={() => handleQuestionClick(question)}
-                className="group cursor-pointer text-left p-3 bg-tertiary rounded-lg hover:bg-primary2 transition-all duration-200 leading-[16px] flex items-center"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <span className="text-black group-hover:text-white text-[14px] leading-[18px] pr-2 font-normal">
-                    {question}
-                  </span>
-                  <Image
-                    src="/Images/SlantedArrow.svg"
-                    alt="Arrow"
-                    width={10}
-                    height={10}
-                    className="group-hover:brightness-0 group-hover:invert"
-                  />
-                </div>
-              </button>
-            ))}
-          </div>
         </div>
       </div>
     </div>

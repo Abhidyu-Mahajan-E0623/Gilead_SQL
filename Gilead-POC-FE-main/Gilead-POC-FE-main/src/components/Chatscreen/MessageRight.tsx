@@ -12,7 +12,7 @@ const MessageRight: React.FC<MessageRightProps> = ({ content }) => {
     <div className="flex justify-end mb-6 mr-2">
       <div className="flex items-start gap-3 max-w-[70%]">
         {/* Message bubble */}
-        <div className="flex-1 bg-red-50 text-black rounded-bl-[12px] rounded-tl-[12px] rounded-br-[12px] p-[16px] shadow-sm border border-red-100">
+        <div className="flex-1 bg-blue-50 text-black rounded-bl-[12px] rounded-tl-[12px] rounded-br-[12px] p-[16px] shadow-sm border border-blue-100">
           <p className="text-sm leading-relaxed font-[400] whitespace-pre-wrap">{content}</p>
         </div>
         

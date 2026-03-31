@@ -68,7 +68,7 @@ export default function PendingPage() {
                 disabled={true}
                 className="flex items-center justify-end rounded-full transition-colors duration-200 flex-shrink-0 opacity-50"
               >
-                <BeatLoader size={6} color="#8a162c" className='mt-2'/>
+                <BeatLoader size={6} color="#001E96" className='mt-2'/>
               </button>
             </div>
           </div>
